@@ -1,0 +1,2226 @@
+<!DOCTYPE html>
+<html lang="ru" style="--tg-viewport-height: 100vh; --tg-viewport-stable-height: 100vh;">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>TMA DSP Audio Player &amp; Studio</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.86);
+      --panel-bg: #0f172a;
+      --canvas-bg: #020617;
+      --text-color: #f8fafc;
+      --hint-color: #94a3b8;
+      --accent-1: #38bdf8;
+      --accent-2: #6366f1;
+      --accent-3: #34d399;
+      --accent-text: #0f172a;
+      --border-col: rgba(255, 255, 255, 0.09);
+    }
+
+    body[data-theme="oled"] {
+      --bg-color: #000000;
+      --card-bg: rgba(14, 14, 18, 0.96);
+      --panel-bg: #070709;
+      --canvas-bg: #000000;
+      --text-color: #ffffff;
+      --hint-color: #71717a;
+      --accent-1: #00f0ff;
+      --accent-2: #3b82f6;
+      --accent-3: #10b981;
+      --accent-text: #000000;
+      --border-col: rgba(255, 255, 255, 0.14);
+    }
+    body[data-theme="amber"] {
+      --bg-color: #140c08;
+      --card-bg: rgba(36, 20, 14, 0.92);
+      --panel-bg: #180d08;
+      --canvas-bg: #0a0503;
+      --text-color: #fff7ed;
+      --hint-color: #fdba74;
+      --accent-1: #f97316;
+      --accent-2: #ef4444;
+      --accent-3: #f59e0b;
+      --accent-text: #0f0704;
+      --border-col: rgba(249, 115, 22, 0.22);
+    }
+    body[data-theme="emerald"] {
+      --bg-color: #04130e;
+      --card-bg: rgba(8, 34, 25, 0.9);
+      --panel-bg: #061c14;
+      --canvas-bg: #020b08;
+      --text-color: #ecfdf5;
+      --hint-color: #6ee7b7;
+      --accent-1: #10b981;
+      --accent-2: #059669;
+      --accent-3: #34d399;
+      --accent-text: #02130c;
+      --border-col: rgba(16, 185, 129, 0.22);
+    }
+    body[data-theme="daylight"] {
+      --bg-color: #e2e8f0;
+      --card-bg: rgba(255, 255, 255, 0.92);
+      --panel-bg: #f8fafc;
+      --canvas-bg: #0f172a;
+      --text-color: #0f172a;
+      --hint-color: #475569;
+      --accent-1: #0284c7;
+      --accent-2: #4f46e5;
+      --accent-3: #059669;
+      --accent-text: #ffffff;
+      --border-col: rgba(15, 23, 42, 0.12);
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+      overflow-x: hidden;
+      min-height: 100vh;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+    .mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-col);
+      border-radius: 22px;
+      padding: 12px;
+      box-shadow: 0 10px 28px -5px rgba(0, 0, 0, 0.45);
+      transition: background 0.25s ease, border-color 0.25s ease;
+    }
+
+    .app-container {
+      max-width: 448px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 10px 12px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .landscape-control-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 62fr) minmax(0, 38fr);
+      gap: 7px;
+      width: 100%;
+    }
+    .landscape-control-btn {
+      min-width: 0;
+      min-height: 44px;
+      padding: 6px 8px;
+      font-size: clamp(12px, 3.2vw, 15px);
+      line-height: 1.15;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-align: center;
+    }
+
+    /* В портретном режиме скрываем автомобильные окна, часы и погоду, оставляя кнопку Bluetooth */
+    @media (orientation: portrait) {
+      .landscape-only {
+        display: none !important;
+      }
+    }
+
+    /* АЛЬБОМНЫЙ РЕЖИМ 9 ДЮЙМОВ: 62% СЛЕВА И 38% СПРАВА НА ВЕСЬ ЭКРАН */
+    @media (orientation: landscape) {
+      html, body {
+        width: 100%;
+        height: 100%;
+        min-height: 100%;
+        overflow: hidden;
+      }
+      body {
+        padding: 0 !important;
+      }
+      .app-container {
+        width: 100vw;
+        max-width: none;
+        height: 100dvh;
+        min-height: 0;
+        margin: 0;
+        padding: 8px;
+        gap: 8px;
+        display: grid;
+        grid-template-columns: minmax(0, 62fr) minmax(0, 38fr);
+        align-items: stretch;
+        overflow: hidden;
+      }
+      .app-container > .glass-card {
+        min-width: 0;
+        min-height: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: 10px 12px;
+        border-radius: 18px;
+      }
+      .app-container > .glass-card #visualizer-wrap {
+        flex: 1;
+        min-height: 92px;
+        height: auto !important;
+      }
+      .app-container > .car-side-col {
+        min-width: 0;
+        height: 100%;
+        min-height: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .app-container > .car-side-col > .glass-card {
+        padding: 7px 10px;
+        border-radius: 14px;
+      }
+      .landscape-control-btn {
+        min-height: 38px;
+        padding: 4px 6px;
+        font-size: clamp(12px, 1.45vw, 15px);
+      }
+      #open-dsp-drawer-btn {
+        min-height: 40px;
+        padding: 8px 12px;
+      }
+    }
+
+    .hidden { display: none !important; }
+    .btn-primary {
+      background: linear-gradient(90deg, var(--accent-1), var(--accent-2));
+      color: var(--accent-text);
+      font-weight: 800;
+      border-radius: 14px;
+      padding: 11px 14px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex: 1;
+      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.22);
+    }
+    .btn-stop {
+      background: rgba(244, 63, 94, 0.18);
+      border: 1px solid rgba(251, 113, 133, 0.35);
+      color: #fda4af;
+      font-weight: 700;
+      border-radius: 14px;
+      padding: 11px 14px;
+      cursor: pointer;
+    }
+    .btn-drawer-open {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 16px;
+      font-weight: 800;
+      font-size: 13px;
+      background: linear-gradient(90deg, var(--accent-2), #a855f7, #ec4899);
+      color: #ffffff;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(168, 85, 247, 0.25);
+    }
+    .gear-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border-col);
+      color: var(--accent-1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      transition: transform 0.2s ease, background 0.2s ease;
+      flex-shrink: 0;
+    }
+    .gear-btn:active { transform: scale(0.92) rotate(35deg); }
+
+    select, input[type="number"], input[type="url"], input[type="text"] {
+      background-color: rgba(15, 23, 42, 0.88);
+      color: #f8fafc;
+      border: 1px solid var(--border-col);
+      border-radius: 12px;
+      padding: 9px 11px;
+      width: 100%;
+      outline: none;
+    }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(148, 163, 184, 0.25);
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--accent-1);
+      border: 2px solid #ffffff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.5);
+    }
+    .drawer-backdrop { transition: opacity 0.3s ease; }
+    .drawer-panel {
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      background-color: var(--panel-bg);
+    }
+    .custom-scroll::-webkit-scrollbar { width: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 99px; }
+    .eq-band-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(15, 23, 42, 0.78);
+      padding: 6px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .eq-band-row.clip-active {
+      border-color: rgba(244, 63, 94, 0.85);
+      background: rgba(136, 19, 55, 0.28);
+    }
+    .theme-chip {
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(15, 23, 42, 0.7);
+      color: #f8fafc;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .theme-chip.active {
+      border-color: var(--accent-1);
+      box-shadow: 0 0 0 1px var(--accent-1) inset;
+    }
+    .layout-chip {
+      padding: 8px 10px;
+      border-radius: 11px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(15, 23, 42, 0.7);
+      color: #cbd5e1;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+    }
+    .layout-chip.active {
+      background: var(--accent-1);
+      color: var(--accent-text);
+      border-color: transparent;
+    }
+
+    .player-control-row {
+      display: grid;
+      grid-template-columns: minmax(0, 62fr) minmax(0, 38fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .transport-group {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      min-width: 0;
+    }
+    .transport-btn {
+      min-width: 0;
+      min-height: 44px;
+      border-radius: 12px;
+      border: 1px solid var(--border-col);
+      background: rgba(255,255,255,.08);
+      color: var(--text-color);
+      font-size: 19px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .transport-btn:active { transform: scale(.96); }
+    #main-play-btn {
+      min-width: 0;
+      min-height: 44px;
+      padding: 8px 6px;
+      font-size: clamp(11px, 2.3vw, 14px);
+      border-radius: 12px;
+    }
+
+    /* Стиль шрифтов часов и приборов */
+    .clock-analog { width: 56px; height: 56px; display: block; }
+    .clock-digital { font-size: clamp(20px, 2.6vw, 26px); font-weight: 900; letter-spacing: .04em; line-height: 1.05; }
+    .clock-minimal { font-size: clamp(19px, 2.5vw, 25px); font-weight: 500; letter-spacing: .12em; line-height: 1.05; }
+    .clock-matrix { font-size: clamp(19px, 2.5vw, 25px); font-weight: 900; letter-spacing: .08em; text-shadow: 0 0 8px #22c55e, 0 0 18px #22c55e; color: #86efac; line-height: 1.05; }
+    .live-pulse { animation: livePulse 1.1s infinite ease-in-out; }
+    @keyframes livePulse {
+      0%, 100% { opacity: .45; box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+      50% { opacity: 1; box-shadow: 0 0 0 5px rgba(52, 211, 153, .18); }
+    }
+
+    /* ВЕРХНЯЯ ПАНЕЛЬ ЛЕВОГО БЛОКА: СКОРОСТЬ 62% И ТЕМПЕРАТУРА 38% ПО ШИРИНЕ, ВЫСОТА 100% ШАПКИ, ЕДИНИЦЫ ЗА ОКНАМИ */
+    .left-header-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    @media (orientation: landscape) {
+      .left-header-grid {
+        display: grid;
+        grid-template-columns: minmax(170px, 1fr) minmax(245px, 1.25fr) auto;
+        grid-template-rows: 32px 32px;
+        column-gap: 8px;
+        row-gap: 4px;
+        align-items: stretch;
+        margin-bottom: 8px;
+      }
+      .lh-controls {
+        grid-column: 1;
+        grid-row: 1;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .lh-title {
+        grid-column: 1;
+        grid-row: 2;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+      }
+      .lh-telemetry {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        height: 68px;
+        display: grid !important;
+        grid-template-columns: minmax(0, 62fr) minmax(0, 38fr);
+        gap: 8px;
+        align-items: stretch;
+      }
+      .lh-right-actions {
+        grid-column: 3;
+        grid-row: 1 / span 2;
+        height: 68px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: flex-end;
+      }
+    }
+
+    .telemetry-unit-wrap {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 100%;
+      min-width: 0;
+    }
+    .obd-header-window {
+      flex: 1;
+      height: 100%;
+      min-width: 0;
+      background: rgba(2, 6, 23, 0.88);
+      border: 1.5px solid rgba(56, 189, 248, 0.48);
+      border-radius: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 6px;
+      cursor: pointer;
+      box-shadow: inset 0 0 16px rgba(56, 189, 248, 0.12);
+      transition: transform 0.15s, border-color 0.2s;
+      overflow: hidden;
+    }
+    .obd-header-window:active {
+      transform: scale(0.96);
+    }
+    .outside-unit-label {
+      font-size: 10px;
+      font-weight: 900;
+      color: var(--accent-1);
+      letter-spacing: 0.03em;
+      line-height: 1;
+      padding-bottom: 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* Шрифт внутри окон скорости, температуры, оборотов и рублей (как на часах) */
+    .obd-font-digital { font-size: clamp(24px, 3vw, 34px); font-weight: 900; letter-spacing: 0.03em; line-height: 1; }
+    .obd-font-minimal { font-size: clamp(22px, 2.8vw, 31px); font-weight: 500; letter-spacing: 0.1em; line-height: 1; }
+    .obd-font-matrix { font-size: clamp(22px, 2.8vw, 31px); font-weight: 900; letter-spacing: 0.07em; text-shadow: 0 0 7px #22c55e, 0 0 14px #22c55e; color: #86efac !important; line-height: 1; }
+    .obd-font-led { font-size: clamp(24px, 3vw, 34px); font-weight: 900; letter-spacing: 0.04em; text-shadow: 0 0 5px var(--accent-1), 0 0 14px var(--accent-1); line-height: 1; }
+
+    /* Температура чуть компактнее, чтобы влезали 3 цифры со знаком градуса */
+    #hud-temp-val.obd-font-digital, #hud-temp-val.obd-font-led { font-size: clamp(20px, 2.4vw, 27px); }
+    #hud-temp-val.obd-font-minimal, #hud-temp-val.obd-font-matrix { font-size: clamp(19px, 2.3vw, 25px); }
+
+    /* КРУПНЫЕ ОКНА СПРАВА (ОБОРОТЫ И РУБЛИ) + ДОПОЛНИТЕЛЬНАЯ СТРОКА БОРТОВОГО КОМПЬЮТЕРА ВНИЗУ */
+    .obd-right-big-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 8px;
+      flex: 1;
+      min-height: 76px;
+    }
+    .obd-right-big-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(2, 6, 23, 0.82);
+      border: 1.5px solid rgba(56, 189, 248, 0.38);
+      border-radius: 16px;
+      padding: 8px 10px;
+      cursor: pointer;
+      box-shadow: inset 0 0 18px rgba(56, 189, 248, 0.08), 0 6px 18px -4px rgba(0, 0, 0, 0.45);
+      transition: transform 0.15s, border-color 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .obd-right-big-box:active { transform: scale(0.97); }
+    .obd-right-big-sub {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: var(--hint-color);
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* Нижняя мульти-панель в оставшемся месте справа (Вольтаж, Расход л/100км, Пробег, Ошибки ЭБУ) */
+    .obd-mini-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 5px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-col);
+      border-radius: 13px;
+      padding: 5px 7px;
+    }
+    .obd-mini-cell {
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 9px;
+      padding: 4px 5px;
+      text-align: center;
+      cursor: pointer;
+    }
+    .obd-mini-cell:active { transform: scale(0.95); }
+    .obd-mini-lbl {
+      font-size: 8px;
+      font-weight: 700;
+      color: var(--hint-color);
+      text-transform: uppercase;
+      display: block;
+    }
+    .obd-mini-val {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--text-color);
+      white-space: nowrap;
+    }
+
+    .bt-obd-btn {
+      min-width: 48px;
+      height: 32px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(37, 99, 235, 0.22);
+      border: 1px solid rgba(59, 130, 246, 0.48);
+      color: #60a5fa;
+      <!--div class="custom-scroll" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;padding-right:2px;"-->
+      <div class="custom-scroll" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;padding-right:2px;">
+        <!-- ВКЛАДКА 1: ПОДКЛЮЧЕНИЕ -->
+        <div id="obd-tab-conn" class="obd-tab-pane" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="background:rgba(15,23,42,0.75);padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:8px;">
+            <label style="font-size:11px;font-weight:700;color:#cbd5e1;">🚗 Профиль CarScanner / ЭБУ:</label>
+            <select id="obd-car-profile" style="font-size:12px;font-weight:700;">
+              <option value="fusion">Ford — OBD-II / EOBD + CAN and extra PIDs (Fusion 1.4L / Focus 2+)</option>
+              <option value="outlander">Mitsubishi — OBD-II / EOBD (Outlander 2.0L 4J11 / ASX / Lancer)</option>
+              <option value="universal">Универсальный — OBD-II / EOBD (SAE J1979 • Автопоиск ATSP0)</option>
+            </select>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+              <div>
+                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Канал записи TX (BLE):</label>
+                <select id="obd-tx-channel-mode" style="font-size:11px;font-weight:700;padding:7px 8px;">
+                  <option value="auto" selected>🔍 Авто-подбор (FFF2 → FFF1)</option>
+                  <option value="fff2">Только FFF2 (Стандарт BLE)</option>
+                  <option value="fff1">Только FFF1 (Single-Char клоны)</option>
+                  <option value="ffe1">Только FFE1 (HM-10 / JDY)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:10px;color:#94a3b8;display:block;margin-bottom:2px;">Метод пакета (Android):</label>
+                <select id="obd-write-mode" style="font-size:11px;font-weight:700;padding:7px 8px;">
+                  <option value="auto" selected>⚡ Авто (WithResp → NoResp)</option>
+                  <option value="with">writeValueWithResponse</option>
+                  <option value="without">writeValueWithoutResponse</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:2px;">
+              <button id="obd-connect-ble-btn" type="button" class="btn-primary" style="padding:11px;font-size:12px;">
+                🔵 Подключить ELM327
+              </button>
+              <button id="obd-disconnect-btn" type="button" class="btn-stop" style="padding:11px;font-size:12px;">
+                Отключить
+              </button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <button id="obd-sim-toggle-btn" type="button" style="padding:9px;border-radius:11px;background:rgba(245,158,11,0.16);border:1px solid rgba(245,158,11,0.35);color:#fcd34d;font-size:11px;font-weight:700;cursor:pointer;">
+                🧪 Демо-тест ДВС: ВЫКЛ
+              </button>
+              <button id="obd-gps-speed-toggle" type="button" style="padding:9px;border-radius:11px;background:rgba(16,185,129,0.18);border:1px solid rgba(52,211,153,0.35);color:#6ee7b7;font-size:11px;font-weight:700;cursor:pointer;">
+                🛰️ GPS-Спидометр: ВЫКЛ
+              </button>
+            </div>
+          </div>
+
+          <div style="background:rgba(2,6,23,0.85);padding:10px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span class="mono" style="font-size:10px;color:#38bdf8;font-weight:700;">ТЕРМИНАЛ ОБМЕНА ELM327 (OBDII)</span>
+              <button id="obd-clear-log-btn" type="button" style="font-size:10px;background:transparent;border:none;color:#94a3b8;cursor:pointer;">Очистить</button>
+            </div>
+            <div id="obd-terminal-log" class="mono custom-scroll" style="height:110px;overflow-y:auto;font-size:10px;color:#86efac;line-height:1.4;white-space:pre-wrap;">[OBD2] Готов. Перед подключением закройте CarScanner в фоне (чтобы освободить адаптер OBDII).</div>
+          </div>
+        </div>
+
+        <!-- ПРАВЫЙ СТЕК ШАПКИ: сверху Bluetooth OBD2, снизу кнопка 32-Спектр -->
+        <div class="lh-right-actions" style="display:flex;align-items:center;justify-content:space-between;gap:5px;">
+          <button id="obd-bt-btn" type="button" class="bt-obd-btn" title="Bluetooth OBD2: подключение, ошибки ЭБУ и расход топлива">
+            <svg style="width:13px;height:13px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"></polyline>
+            </svg>
+            <span id="obd-live-badge" class="mono" style="font-size:9px;font-weight:900;">OBD2</span>
+          </button>
+
+          <div style="display:flex;align-items:center;gap:4px;">
+            <button id="vis-mode-btn" type="button" class="mono" style="padding:5px 8px;border-radius:9px;background:rgba(255,255,255,0.1);color:#cbd5e1;font-size:10px;font-weight:700;border:1px solid rgba(255,255,255,0.12);cursor:pointer;white-space:nowrap;">
+              📊 32-Спектр
+            </button>
+            <span id="source-type-badge" class="mono" style="font-size:9px;font-weight:800;color:var(--accent-1);white-space:nowrap;">
+              ГОТОВ
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 32-полосный Canvas Визуализатор (20 Гц – 16 кГц) -->
+      <div id="visualizer-wrap" style="position:relative;width:100%;height:172px;border-radius:16px;background:var(--canvas-bg);border:1px solid rgba(255,255,255,0.1);overflow:hidden;display:flex;align-items:center;justify-content:center;">
+        <canvas id="visualizer-canvas" width="640" height="320" style="width:100%;height:100%;display:block;"></canvas>
+        <div style="position:absolute;left:10px;bottom:7px;display:flex;align-items:center;gap:7px;pointer-events:none;z-index:2;">
+          <span id="live-dot" style="width:8px;height:8px;border-radius:50%;display:inline-block;background:#64748b;flex-shrink:0;"></span>
+          <span id="buffer-health-badge" class="mono" style="padding:3px 7px;border-radius:8px;background:rgba(0,0,0,.68);font-size:10px;color:#6ee7b7;border:1px solid rgba(255,255,255,.12);white-space:nowrap;">Очередь: 0.0с</span>
+        </div>
+
+        <!-- Сводка задержек и коридора поверх визуализатора -->
+        <div style="position:absolute;top:8px;left:10px;right:10px;display:flex;justify-content:space-between;pointer-events:none;">
+          <span class="mono" id="hud-delay-l" style="padding:2px 6px;border-radius:6px;background:rgba(0,0,0,0.65);font-size:10px;color:#7dd3fc;border:1px solid rgba(56,189,248,0.2);">
+            L: 1.43 мс
+          </span>
+          <span class="mono" id="hud-width" style="padding:2px 6px;border-radius:6px;background:rgba(0,0,0,0.65);font-size:10px;color:#6ee7b7;border:1px solid rgba(52,211,153,0.2);">
+            Полка: +0..+3 дБ
+          </span>
+          <span class="mono" id="hud-delay-r" style="padding:2px 6px;border-radius:6px;background:rgba(0,0,0,0.65);font-size:10px;color:#a5b4fc;border:1px solid rgba(129,140,248,0.2);">
+            R: 0.00 мс
+          </span>
+        </div>
+      </div>
+
+      <!-- Полоса прогресса для локальных треков -->
+      <div id="seek-container" class="hidden" style="margin-top:8px;">
+        <input type="range" id="seek-slider" min="0" max="100" step="0.1" value="0">
+        <div class="mono" style="display:flex;justify-content:space-between;font-size:10px;color:#94a3b8;margin-top:2px;">
+          <span id="time-current">0:00</span>
+          <span id="time-total">0:00</span>
+        </div>
+      </div>
+
+      <!-- Транспорт: назад (≪) / стоп (■) / вперед (≫) в едином стиле -->
+      <div class="player-control-row">
+        <div class="transport-group">
+          <button id="track-prev-btn" type="button" class="transport-btn" title="Предыдущий трек / станция">≪</button>
+          <button id="main-stop-btn" type="button" class="transport-btn" title="Стоп">■</button>
+          <button id="track-next-btn" type="button" class="transport-btn" title="Следующий трек / станция">≫</button>
+        </div>
+        <button id="main-play-btn" type="button" class="btn-primary">
+          <span id="main-play-icon">▶</span>
+          <span id="main-play-text">Пуск / Пауза</span>
+        </button>
+      </div>
+
+      <!-- Громкость -->
+      <div style="margin-top:8px;display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.25);padding:6px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.05);">
+        <span style="font-size:12px;">🔈</span>
+        <input type="range" id="master-gain-slider" min="0" max="1.5" step="0.01" value="1">
+        <span class="mono" id="master-gain-label" style="font-size:11px;color:var(--accent-1);min-width:40px;text-align:right;font-weight:700;">100%</span>
+      </div>
+    </div>
+
+    <!-- ПРАВАЯ КОЛОНКА (38% В АЛЬБОМНОМ РЕЖИМЕ): 4 КНОПКИ, ПУЛЬТ, ЧАСЫ, ПОГОДА, КРУПНЫЕ ОКНА ОБ/МИН И ₽ + БОРТОВОЙ БАР -->
+    <div class="car-side-col" style="display:flex;flex-direction:column;gap:8px;">
+      <div class="glass-card" style="display:flex;flex-direction:column;gap:6px;">
+        <div class="landscape-control-grid">
+          <button id="radio-list-toggle" type="button" class="landscape-control-btn" style="border-radius:12px;background:rgba(255,255,255,.075);border:1px solid var(--border-col);color:var(--text-color);font-weight:800;cursor:pointer;">📻 Список радио</button>
+          <button id="bitrate-toggle" type="button" class="landscape-control-btn" style="border-radius:12px;background:rgba(255,255,255,.075);border:1px solid var(--border-col);color:var(--text-color);font-weight:800;cursor:pointer;">📶 Выбор бит</button>
+          <button id="playlist-toggle" type="button" class="landscape-control-btn" style="border-radius:12px;background:rgba(255,255,255,.075);border:1px solid var(--border-col);color:var(--text-color);font-weight:800;cursor:pointer;">🎵 Плейлист (<span id="playlist-count">0</span>)</button>
+          <button id="upload-files-btn" type="button" class="landscape-control-btn" style="border-radius:12px;background:rgba(16,185,129,.16);border:1px solid rgba(52,211,153,.38);color:#6ee7b7;font-weight:800;cursor:pointer;">📂 Загрузка файлов</button>
+        </div>
+
+        <div id="radio-select-panel" class="landscape-panel hidden" style="margin-top:4px;">
+          <select id="radio-select" style="font-size:16px;font-weight:700;min-height:44px;">
+            <option value="https://radiorecord.hostingradio.ru/rr_main96.aacp">🔥 Radio Record — Основной эфир</option>
+            <option value="https://radiorecord.hostingradio.ru/deep96.aacp">🌊 Record Deep</option>
+            <option value="https://icecast-vgtrk.cdnvideo.ru/st21_1">🎤 Студия 21 (Hip-Hop / Rap)</option>
+            <option value="https://stream.radioparadise.com/aac-128">🌴 Radio Paradise (Main Mix AAC)</option>
+            <option value="https://stream.radioparadise.com/mp3-128">🌴 Radio Paradise (MP3 128)</option>
+            <option value="https://radiorecord.hostingradio.ru/wave96.aacp">📻 Radio Wave (Record)</option>
+            <option value="https://radiorecord.hostingradio.ru/tm96.aacp">⚡ Record Trancemission</option>
+            <option value="https://radiorecord.hostingradio.ru/chill96.aacp">🌙 Record Chill-Out</option>
+            <option value="https://radiorecord.hostingradio.ru/synth96.aacp">🌆 Record Synthwave</option>
+            <option value="https://ep256.hostingradio.ru:8052/europaplus256.mp3">🌍 Европа Плюс</option>
+            <option value="https://retro.hostingradio.ru:8043/retro256.mp3">📼 Ретро FM</option>
+            <option value="https://ice1.somafm.com/groovesalad-128-mp3">🥗 SomaFM — Groove Salad</option>
+            <option value="custom">🔗 Вставить свой URL потока...</option>
+          </select>
+          <input type="url" id="custom-url-input" placeholder="https://..." class="hidden mono" style="font-size:13px;color:var(--accent-1);margin-top:6px;">
+          <div id="custom-station-actions" class="hidden" style="display:flex;gap:6px;margin-top:6px;">
+            <input id="custom-station-name" type="text" placeholder="Название станции" style="min-width:0;flex:1;font-size:12px;">
+            <button id="save-station-btn" type="button" class="gear-btn" style="width:auto;padding:0 10px;font-size:11px;">Сохранить</button>
+            <button id="delete-station-btn" type="button" class="gear-btn" style="width:auto;padding:0 10px;font-size:11px;">Удалить</button>
+          </div>
+        </div>
+
+        <div id="bitrate-panel" class="landscape-panel hidden" style="margin-top:4px;display:flex;flex-direction:column;gap:6px;">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+            <button type="button" data-bitrate-buf="standard" class="bitrate-chip layout-chip">96 kbps (Быстро)</button>
+            <button type="button" data-bitrate-buf="large" class="bitrate-chip layout-chip active">128 kbps (Норма)</button>
+            <button type="button" data-bitrate-buf="max" class="bitrate-chip layout-chip">320 kbps (Макс)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Кнопка открытия пульта 32-EQ и Задержек -->
+      <button id="open-dsp-drawer-btn" type="button" class="btn-drawer-open">
+        <span style="display:flex;align-items:center;gap:8px;"><span style="font-size:17px;">🎛️</span><span>Пульт 32-EQ и Задержек</span></span>
+        <span class="mono" style="padding:3px 8px;border-radius:8px;background:rgba(0,0,0,0.3);font-size:11px;">32 полосы ▲</span>
+      </button>
+
+      <!-- ЧАСЫ С КНОПКОЙ СМЕНЫ РЕЖИМОВ -->
+      <div class="glass-card landscape-info-card landscape-only" style="display:flex;flex-direction:column;gap:4px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div id="clock-face" style="min-width:0;">
+            <div id="clock-display" class="mono clock-digital">00:00:00</div>
+            <div id="clock-date" style="font-size:10px;color:var(--hint-color);">Загрузка даты…</div>
+          </div>
+          <button id="clock-mode-btn" type="button" class="gear-btn" style="width:auto;height:30px;padding:0 10px;font-size:11px;white-space:nowrap;">Вид: Digital</button>
+        </div>
+      </div>
+
+      <!-- ПОГОДА С ВЫБОРОМ ГОРОДА -->
+      <div id="weather-card" class="glass-card landscape-info-card landscape-only" style="display:flex;flex-direction:column;gap:3px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <div style="display:flex;align-items:center;gap:7px;min-width:0;">
+            <strong style="font-size:12px;">🌤 Погода</strong>
+            <span id="weather-current" style="font-size:16px;font-weight:900;color:var(--accent-1);">--°</span>
+            <span id="weather-location" style="font-size:10px;color:var(--hint-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Москва</span>
+          </div>
+          <button id="weather-city-btn" type="button" class="gear-btn" style="width:auto;height:26px;padding:0 8px;font-size:10px;">📍 Город</button>
+        </div>
+        <div id="weather-details" style="font-size:10px;color:var(--hint-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Ожидание данных прогноза…</div>
+        <div id="weather-city-panel" class="hidden" style="display:flex;gap:6px;margin-top:4px;">
+          <input id="weather-city-input" type="text" placeholder="Например, Москва" style="font-size:12px;padding:5px 9px;min-width:0;flex:1;">
+          <button id="weather-city-apply" type="button" class="gear-btn" style="width:auto;height:28px;padding:0 10px;">ОК</button>
+        </div>
+      </div>
+
+      <!-- ДВА БОЛЬШИХ И ВЫСОКИХ ОКНА СНИЗУ (КАК НАРИСОВАНО СИНИМ НА ФОТО): ОБОРОТЫ И РУБЛИ -->
+      <div class="obd-right-big-grid landscape-only">
+        <div id="hud-obd-rpm-box" class="obd-right-big-box" title="Обороты ДВС (010C) — нажмите для открытия Инфо OBD2">
+          <div id="hud-rpm-val" class="mono obd-font-digital">0</div>
+          <div class="mono obd-right-big-sub">ОБ / МИН (ТАХОМЕТР)</div>
+        </div>
+        <div id="hud-obd-rub-box" class="obd-right-big-box" title="Стоимость израсходованного топлива — нажмите для открытия Расхода">
+          <div id="hud-rub-val" class="mono obd-font-digital" style="color:#fb7185;">0 ₽</div>
+          <div class="mono obd-right-big-sub">ПОЕЗДКА В РУБЛЯХ (₽)</div>
+        </div>
+      </div>
+
+      <!-- ДОПОЛНИТЕЛЬНАЯ СТРОКА В ОСТАВШЕМСЯ МЕСТЕ СНИЗУ: ВОЛЬТАЖ АКБ + СРЕДНИЙ РАСХОД + ПРОБЕГ + ДИАГНОСТИКА ЭБУ -->
+      <div class="obd-mini-strip landscape-only">
+        <div class="obd-mini-cell" id="mini-cell-volt" title="Напряжение бортсети (ATRV)">
+          <span class="obd-mini-lbl">⚡ Бортсеть</span>
+          <span id="strip-volt-val" class="mono obd-mini-val" style="color:#fcd34d;">14.2 В</span>
+        </div>
+        <div class="obd-mini-cell" id="mini-cell-avg" title="Средний / мгновенный расход топлива">
+          <span class="obd-mini-lbl">⛽ Расход</span>
+          <span id="strip-fuel-val" class="mono obd-mini-val" style="color:#34d399;">0.0 л/100</span>
+        </div>
+        <div class="obd-mini-cell" id="mini-cell-dist" title="Пробег за день">
+          <span class="obd-mini-lbl">🛣️ Пробег</span>
+          <span id="strip-dist-val" class="mono obd-mini-val" style="color:#38bdf8;">0.0 км</span>
+        </div>
+        <div class="obd-mini-cell" id="mini-cell-dtc" title="Быстрая проверка ошибок ЭБУ (Check Engine)">
+          <span class="obd-mini-lbl">🛡️ ЭБУ DTC</span>
+          <span id="strip-dtc-val" class="mono obd-mini-val" style="color:#6ee7b7;">ОК (0)</span>
+        </div>
+      </div>
+
+      <input type="file" id="file-input-any" multiple style="display:none;">
+      <input type="file" id="file-input-folder" webkitdirectory directory multiple style="display:none;">
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО BLUETOOTH OBD2 (ПОДКЛЮЧЕНИЕ, ДАТЧИКИ, ОШИБКИ ЭБУ, СЧЕТЧИК ТОПЛИВА) -->
+  <div id="obd-modal" class="hidden" style="position:fixed;inset:0;z-index:78;background:rgba(0,0,0,0.78);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:10px;">
+    <div class="glass-card" style="width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;border-radius:22px;padding:14px;background:var(--panel-bg);border:1px solid rgba(56,189,248,0.28);">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.1);">
+        <div>
+          <h3 style="margin:0;font-size:16px;font-weight:800;display:flex;align-items:center;gap:7px;">
+            <span style="color:#60a5fa;">📘 Bluetooth OBD2 Бортовой Компьютер</span>
+            <span id="obd-modal-status-pill" class="mono" style="font-size:10px;padding:2px 7px;border-radius:99px;background:rgba(148,163,184,0.18);color:#cbd5e1;">GPS / Ожидание</span>
+          </h3>
+          <p style="margin:2px 0 0;font-size:11px;color:var(--hint-color);">ELM327 BLE • Инфо ДВС • Чтение и сброс ошибок • Счетчик топлива</p>
+        </div>
+        <button id="obd-modal-close" type="button" class="gear-btn">✕</button>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0;">
+        <button type="button" data-obd-tab="obd-tab-conn" class="obd-tab-btn layout-chip active">🔌 Связь</button>
+        <button type="button" data-obd-tab="obd-tab-info" class="obd-tab-btn layout-chip">📊 Инфо</button>
+        <button type="button" data-obd-tab="obd-tab-dtc" class="obd-tab-btn layout-chip">⚠️ Ошибки</button>
+        <button type="button" data-obd-tab="obd-tab-fuel" class="obd-tab-btn layout-chip">⛽ Расход</button>
+      </div>
+
+      <div class="custom-scroll" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;padding-right:2px;">
+        <!-- ВКЛАДКА 1: ПОДКЛЮЧЕНИЕ -->
+        <div id="obd-tab-conn" class="obd-tab-pane" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="background:rgba(15,23,42,0.75);padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:8px;">
+            <label style="font-size:11px;font-weight:700;color:#cbd5e1;">🚗 Профиль автомобиля:</label>
+            <select id="obd-car-profile" style="font-size:13px;font-weight:700;">
+              <option value="fusion">Ford Fusion 1.4L (2002–2012 • Duratec • 45 л)</option>
+              <option value="outlander">Mitsubishi Outlander 2.0L (2011–2022 • 4J11 • 60 л)</option>
+            </select>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;">
+              <button id="obd-connect-ble-btn" type="button" class="btn-primary" style="padding:11px;font-size:12px;">
+                🔵 Подключить ELM327
+              </button>
+              <button id="obd-disconnect-btn" type="button" class="btn-stop" style="padding:11px;font-size:12px;">
+                Отключить
+              </button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <button id="obd-sim-toggle-btn" type="button" style="padding:9px;border-radius:11px;background:rgba(245,158,11,0.16);border:1px solid rgba(245,158,11,0.35);color:#fcd34d;font-size:11px;font-weight:700;cursor:pointer;">
+                🧪 Демо-тест ДВС: ВЫКЛ
+              </button>
+              <button id="obd-gps-speed-toggle" type="button" style="padding:9px;border-radius:11px;background:rgba(16,185,129,0.18);border:1px solid rgba(52,211,153,0.35);color:#6ee7b7;font-size:11px;font-weight:700;cursor:pointer;">
+                🛰️ GPS-Спидометр: ВКЛ
+              </button>
+            </div>
+          </div>
+
+          <div style="background:rgba(2,6,23,0.85);padding:10px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span class="mono" style="font-size:10px;color:#38bdf8;font-weight:700;">ТЕРМИНАЛ ОБМЕНА ELM327</span>
+              <button id="obd-clear-log-btn" type="button" style="font-size:10px;background:transparent;border:none;color:#94a3b8;cursor:pointer;">Очистить</button>
+            </div>
+            <div id="obd-terminal-log" class="mono custom-scroll" style="height:96px;overflow-y:auto;font-size:10px;color:#86efac;line-height:1.4;white-space:pre-wrap;">[OBD2] Готов к поиску Bluetooth адаптера ELM327...</div>
+          </div>
+        </div>
+
+        <!-- ВКЛАДКА 2: ИНФО И ДАТЧИКИ -->
+        <div id="obd-tab-info" class="obd-tab-pane hidden" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+            <div style="background:rgba(15,23,42,0.75);padding:10px;border-radius:13px;border:1px solid rgba(255,255,255,0.07);">
+              <div style="font-size:10px;color:var(--hint-color);">Скорость (010D / GPS)</div>
+              <div id="obd-info-speed" class="mono" style="font-size:22px;font-weight:900;color:#38bdf8;">0 км/ч</div>
+            </div>
+            <div style="background:rgba(15,23,42,0.75);padding:10px;border-radius:13px;border:1px solid rgba(255,255,255,0.07);">
+              <div style="font-size:10px;color:var(--hint-color);">Температура ДВС (0105)</div>
+              <div id="obd-info-temp" class="mono" style="font-size:22px;font-weight:900;color:#34d399;">-- °C</div>
+            </div>
+            <div style="background:rgba(15,23,42,0.75);padding:10px;border-radius:13px;border:1px solid rgba(255,255,255,0.07);">
+              <div style="font-size:10px;color:var(--hint-color);">Обороты ДВС (010C)</div>
+              <div id="obd-info-rpm" class="mono" style="font-size:20px;font-weight:800;color:#f8fafc;">0 об/мин</div>
+            </div>
+            <div style="background:rgba(15,23,42,0.75);padding:10px;border-radius:13px;border:1px solid rgba(255,255,255,0.07);">
+              <div style="font-size:10px;color:var(--hint-color);">Напряжение бортсети</div>
+              <div id="obd-info-volt" class="mono" style="font-size:20px;font-weight:800;color:#fcd34d;">14.2 В</div>
+            </div>
+            <div style="background:rgba(15,23,42,0.75);padding:10px;border-radius:13px;border:1px solid rgba(255,255,255,0.07);">
+              <div style="font-size:10px;color:var(--hint-color);">Нагрузка ДВС (0104)</div>
+              <div id="obd-info-load" class="mono" style="font-size:18px;font-weight:800;color:#a5b4fc;">0 %</div>
+            </div>
+            <div style="background:rgba(15,23,42,0.75);padding:10px;border-radius:13px;border:1px solid rgba(255,255,255,0.07);">
+              <div style="font-size:10px;color:var(--hint-color);">Мгновенный расход</div>
+              <div id="obd-info-instant-fuel" class="mono" style="font-size:18px;font-weight:800;color:#fb7185;">0.00 л/ч</div>
+            </div>
+          </div>
+          <div style="background:rgba(15,23,42,0.65);padding:9px 12px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;font-size:11px;">
+            <span style="color:var(--hint-color);">⏱️ Моточасы поездки:</span>
+            <span id="obd-info-timers" class="mono" style="font-weight:700;color:#cbd5e1;">В пути: 00:00:00</span>
+          </div>
+        </div>
+
+        <!-- ВКЛАДКА 3: ЧТЕНИЕ И СБРОС ОШИБОК (DTC) -->
+        <div id="obd-tab-dtc" class="obd-tab-pane hidden" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button id="obd-read-dtc-btn" type="button" class="btn-primary" style="padding:11px;font-size:12px;">
+              🔍 Прочитать ошибки
+            </button>
+            <button id="obd-clear-dtc-btn" type="button" class="btn-stop" style="padding:11px;font-size:12px;">
+              🧹 Очистить ошибки
+            </button>
+          </div>
+          <div id="obd-dtc-list" style="background:rgba(15,23,42,0.78);padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,0.08);min-height:110px;font-size:12px;color:#cbd5e1;">
+            Нажмите «Прочитать ошибки» для опроса ЭБУ по протоколу OBD2 (Mode 03 / Mode 07).
+          </div>
+        </div>
+
+        <!-- ВКЛАДКА 4: СЧЕТЧИК РАСХОДА ТОПЛИВА -->
+        <div id="obd-tab-fuel" class="obd-tab-pane hidden" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;">
+            <button type="button" data-fuel-period="day" class="fuel-period-btn layout-chip active">День</button>
+            <button type="button" data-fuel-period="week" class="fuel-period-btn layout-chip">Неделя</button>
+            <button type="button" data-fuel-period="month" class="fuel-period-btn layout-chip">Месяц</button>
+            <button type="button" data-fuel-period="year" class="fuel-period-btn layout-chip">Год</button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+            <div style="background:rgba(15,23,42,0.75);padding:10px;border-radius:13px;border:1px solid rgba(255,255,255,0.07);">
+              <div style="font-size:10px;color:var(--hint-color);">Пробег за период</div>
+              <div id="obd-fuel-dist" class="mono" style="font-size:19px;font-weight:900;color:#38bdf8;">0.00 км</div>
+            </div>
+            <div style="background:rgba(15,23,42,0.75);padding:10px;border-radius:13px;border:1px solid rgba(255,255,255,0.07);">
+              <div style="font-size:10px;color:var(--hint-color);">Потрачено топлива</div>
+              <div id="obd-fuel-liters" class="mono" style="font-size:19px;font-weight:900;color:#34d399;">0.00 л</div>
+            </div>
+            <div style="background:rgba(15,23,42,0.75);padding:10px;border-radius:13px;border:1px solid rgba(255,255,255,0.07);">
+              <div style="font-size:10px;color:var(--hint-color);">Средний расход</div>
+              <div id="obd-fuel-avg" class="mono" style="font-size:19px;font-weight:900;color:#fcd34d;">0.0 л/100км</div>
+            </div>
+            <div style="background:rgba(15,23,42,0.75);padding:10px;border-radius:13px;border:1px solid rgba(255,255,255,0.07);">
+              <div style="font-size:10px;color:var(--hint-color);">Сумма в рублях</div>
+              <div id="obd-fuel-cost" class="mono" style="font-size:19px;font-weight:900;color:#fb7185;">0 ₽</div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;background:rgba(15,23,42,0.75);padding:9px 12px;border-radius:13px;">
+            <span style="font-size:11px;color:#cbd5e1;white-space:nowrap;">⛽ Цена (₽/л):</span>
+            <input type="number" id="obd-fuel-price" value="62.5" step="0.5" class="mono" style="padding:6px 10px;font-size:13px;font-weight:700;max-width:95px;">
+            <button id="obd-reset-fuel-btn" type="button" class="btn-stop" style="padding:7px 11px;font-size:11px;margin-left:auto;white-space:nowrap;">
+              🗑️ Сброс
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО ВЫБОРА ИСТОЧНИКА ФАЙЛОВ (ОБХОД ЯНДЕКС.ДИСКА И ФОТО/ВИДЕО НА ANDROID / iOS) -->
+  <div id="file-source-modal" class="hidden" style="position:fixed;inset:0;z-index:82;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:12px;">
+    <div class="glass-card" style="width:100%;max-width:460px;border-radius:22px;padding:16px;background:var(--panel-bg);border:1px solid rgba(52,211,153,0.35);display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <h3 style="margin:0;font-size:16px;font-weight:800;color:#6ee7b7;">📂 Загрузка музыки в DSP</h3>
+          <p style="margin:2px 0 0;font-size:11px;color:var(--hint-color);">Выберите способ открытия памяти для вашей магнитолы / телефона</p>
+        </div>
+        <button id="file-source-close" type="button" class="gear-btn">✕</button>
+      </div>
+
+      <button id="pick-chrome-dir-btn" type="button" style="width:100%;padding:12px 14px;border-radius:14px;background:linear-gradient(90deg,rgba(16,185,129,0.25),rgba(56,189,248,0.22));border:1px solid rgba(52,211,153,0.5);color:#ecfdf5;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:22px;">📁</span>
+        <div>
+          <div style="font-size:13px;font-weight:800;">Папка с музыкой (Встроенный проводник Chrome)</div>
+          <div style="font-size:10px;color:#6ee7b7;">Открывает память магнитолы / USB напрямую без Яндекс.Диска</div>
+        </div>
+      </button>
+
+      <button id="pick-audio-ext-btn" type="button" style="width:100%;padding:12px 14px;border-radius:14px;background:rgba(56,189,248,0.16);border:1px solid rgba(56,189,248,0.4);color:#f8fafc;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:22px;">🎵</span>
+        <div>
+          <div style="font-size:13px;font-weight:800;">Аудиофайлы (MP3 / FLAC / WAV / M4A)</div>
+          <div style="font-size:10px;color:#7dd3fc;">Прямой фильтр по расширениям аудио для iPhone и Android</div>
+        </div>
+      </button>
+
+      <button id="pick-webkit-dir-btn" type="button" style="width:100%;padding:12px 14px;border-radius:14px;background:rgba(99,102,241,0.16);border:1px solid rgba(129,140,248,0.4);color:#f8fafc;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:22px;">🗂️</span>
+        <div>
+          <div style="font-size:13px;font-weight:800;">Импорт всей папки целиком (Directory)</div>
+          <div style="font-size:10px;color:#a5b4fc;">Загружает все треки из выбранной папки в плейлист</div>
+        </div>
+      </button>
+
+      <button id="pick-any-file-btn" type="button" style="width:100%;padding:11px 14px;border-radius:14px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);color:#cbd5e1;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:20px;">📄</span>
+        <div>
+          <div style="font-size:12px;font-weight:800;">Системный выбор документа (*/*)</div>
+          <div style="font-size:10px;color:#94a3b8;">Через «Файлы» / «Фото и видео» / облачный диск</div>
+        </div>
+      </button>
+
+      <input type="file" id="file-input-audio-ext" accept=".mp3,.flac,.wav,.m4a,.aac,.ogg,.opus,.wma,audio/*" multiple style="display:none;">
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО НАСТРОЕК И СМЕНЫ ИНТЕРФЕЙСА (⚙️) -->
+  <div id="settings-drawer" style="position:fixed;inset:0;z-index:60;pointer-events:none;">
+    <div id="settings-backdrop" class="drawer-backdrop" style="position:absolute;inset:0;background:rgba(0,0,0,0.74);opacity:0;"></div>
+
+    <div id="settings-panel" class="drawer-panel" style="position:absolute;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;border-top:1px solid rgba(255,255,255,0.16);border-radius:24px 24px 0 0;max-height:88vh;display:flex;flex-direction:column;transform:translateY(100%);box-shadow:0 -12px 40px rgba(0,0,0,0.7);">
+      <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <h2 style="margin:0;font-size:16px;font-weight:800;">⚙️ Настройки и Интерфейс</h2>
+          <p id="user-greeting" style="margin:2px 0 0;font-size:11px;color:#94a3b8;">Кастомизация темы, экрана и фонового режима</p>
+        </div>
+        <button id="close-settings-btn" type="button" style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.1);color:#fff;border:none;font-weight:700;cursor:pointer;">✕</button>
+      </div>
+
+      <div class="custom-scroll" style="padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;">
+        <div style="background:rgba(30,41,59,0.75);padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px;">
+          <span style="font-size:11px;font-weight:800;color:#cbd5e1;text-transform:uppercase;">🛡️ Экран, Карман и Фоновый режим</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button id="pocket-mode-btn" type="button" style="padding:11px 10px;border-radius:12px;font-size:12px;font-weight:800;background:rgba(99,102,241,0.22);color:#a5b4fc;border:1px solid rgba(129,140,248,0.35);cursor:pointer;">🌙 Карман (OLED)</button>
+            <button id="download-html-btn" type="button" style="padding:11px 10px;border-radius:12px;font-size:12px;font-weight:800;background:rgba(56,189,248,0.18);color:#7dd3fc;border:1px solid rgba(56,189,248,0.35);cursor:pointer;">⬇ Скачать HTML</button>
+          </div>
+          <button id="bg-mode-toggle" type="button" class="mono" style="width:100%;padding:11px 12px;border-radius:12px;font-size:11px;font-weight:700;background:rgba(16,185,129,0.2);color:#6ee7b7;border:1px solid rgba(52,211,153,0.35);cursor:pointer;text-align:center;">
+            🔒 Удержание фона и экрана блокировки: ВКЛ
+          </button>
+          <div>
+            <label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:4px;">📶 Буфер анти-заикания радиопотока:</label>
+            <select id="chunk-buffer-mode" style="font-size:12px;font-weight:700;color:#7dd3fc;">
+              <option value="standard">📶 Быстрый старт (48 КБ старт / 96 КБ поток)</option>
+              <option value="large" selected>🛡️ Стабильный для блока экрана (64 КБ / 140 КБ)</option>
+              <option value="max">🔒 Максимальный запас (80 КБ / 192 КБ)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="background:rgba(30,41,59,0.75);padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px;">
+          <span style="font-size:11px;font-weight:800;color:#cbd5e1;text-transform:uppercase;">🎨 Цветовая тема студии (5 скинов)</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <button type="button" data-set-theme="cyber" class="theme-chip active"><span style="width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,#38bdf8,#6366f1);display:inline-block;"></span><span>🌌 Midnight Cyber</span></button>
+            <button type="button" data-set-theme="oled" class="theme-chip"><span style="width:14px;height:14px;border-radius:50%;background:#000;border:2px solid #00f0ff;display:inline-block;"></span><span>🖤 OLED Carbon</span></button>
+            <button type="button" data-set-theme="amber" class="theme-chip"><span style="width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,#f97316,#ef4444);display:inline-block;"></span><span>🟠 Amber Car Audio</span></button>
+            <button type="button" data-set-theme="emerald" class="theme-chip"><span style="width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,#10b981,#047857);display:inline-block;"></span><span>🟢 Emerald Matrix</span></button>
+            <button type="button" data-set-theme="daylight" class="theme-chip" style="grid-column:span 2;"><span style="width:14px;height:14px;border-radius:50%;background:linear-gradient(135deg,#f8fafc,#0284c7);display:inline-block;"></span><span>☀️ Daylight Frost (Светлая контрастная тема)</span></button>
+          </div>
+        </div>
+
+        <div style="background:rgba(30,41,59,0.75);padding:12px;border-radius:16px;border:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px;">
+          <span style="font-size:11px;font-weight:800;color:#cbd5e1;text-transform:uppercase;">📊 Отрисовка столбиков спектра</span>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+            <button type="button" data-set-barstyle="smooth" class="barstyle-chip layout-chip active">Сплошные</button>
+            <button type="button" data-set-barstyle="led" class="barstyle-chip layout-chip">LED-Кубики</button>
+            <button type="button" data-set-barstyle="thin" class="barstyle-chip layout-chip">Тонкие пики</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ВСПЛЫВАЮЩЕЕ ОКНО (DRAWER) С НАСТРОЙКАМИ ЗАДЕРЖЕК И 32-ПОЛОСНОГО ЭКВАЛАЙЗЕРА -->
+  <div id="dsp-drawer" style="position:fixed;inset:0;z-index:50;pointer-events:none;">
+    <div id="drawer-backdrop" class="drawer-backdrop" style="position:absolute;inset:0;background:rgba(0,0,0,0.72);opacity:0;"></div>
+
+    <div id="drawer-panel" class="drawer-panel" style="position:absolute;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;border-top:1px solid rgba(255,255,255,0.15);border-radius:24px 24px 0 0;max-height:88vh;display:flex;flex-direction:column;transform:translateY(100%);">
+      <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <h2 style="margin:0;font-size:16px;font-weight:800;">🎛️ Студийная стойка DSP</h2>
+          <p style="margin:2px 0 0;font-size:11px;color:#94a3b8;">32 полосы (20 Гц – 16 кГц) • Без сатуратора</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button id="reset-all-dsp-btn" type="button" style="padding:6px 10px;border-radius:10px;font-size:11px;font-weight:700;background:rgba(244,63,94,0.2);color:#fda4af;border:1px solid rgba(244,63,94,0.3);cursor:pointer;">Сброс</button>
+          <button id="close-dsp-drawer-btn" type="button" style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.1);color:#fff;border:none;cursor:pointer;">✕</button>
+        </div>
+      </div>
+
+      <div style="padding:10px 16px 0;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+        <button type="button" data-tab="tab-eq" class="dsp-tab-btn" style="padding:8px 4px;border-radius:10px;font-size:11px;font-weight:700;background:#38bdf8;color:#0f172a;border:none;cursor:pointer;">🎚️ 32-EQ</button>
+        <button type="button" data-tab="tab-delay" class="dsp-tab-btn" style="padding:8px 4px;border-radius:10px;font-size:11px;font-weight:700;background:rgba(255,255,255,0.1);color:#cbd5e1;border:none;cursor:pointer;">⏱️ Задержка</button>
+        <button type="button" data-tab="tab-space" class="dsp-tab-btn" style="padding:8px 4px;border-radius:10px;font-size:11px;font-weight:700;background:rgba(255,255,255,0.1);color:#cbd5e1;border:none;cursor:pointer;">🌌 Эхо/3D</button>
+        <button type="button" data-tab="tab-mic" class="dsp-tab-btn" style="padding:8px 4px;border-radius:10px;font-size:11px;font-weight:700;background:rgba(255,255,255,0.1);color:#fda4af;border:none;cursor:pointer;">🎤 Микро-Тест</button>
+      </div>
+
+      <div class="custom-scroll" style="padding:16px;overflow-y:auto;flex:1;">
+        <!-- ВКЛАДКА 1: 32-EQ -->
+        <div id="tab-eq" class="dsp-tab-content">
+          <div style="background:rgba(30,41,59,0.9);padding:14px;border-radius:16px;border:1px solid rgba(52,211,153,0.25);margin-bottom:12px;display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <span style="font-size:12px;font-weight:800;color:#6ee7b7;display:block;">🤖 Мастеринг Авто-АЧХ (Плавная полка)</span>
+                <span style="font-size:10px;color:#94a3b8;">Шкала: -15 дБ / 0 / [Коридор 0..+3 дБ] / +15 дБ</span>
+              </div>
+              <button id="drawer-auto-eq-btn" type="button" style="padding:6px 12px;border-radius:10px;background:rgba(255,255,255,0.1);color:#e2e8f0;font-size:11px;font-weight:800;border:1px solid rgba(255,255,255,0.15);cursor:pointer;">ВКЛЮЧИТЬ</button>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;">
+                <span style="color:#cbd5e1;">⬆️ Верхний предел полки (Подтяжка слабых)</span>
+                <span class="mono" style="font-weight:700;color:#34d399;" id="val-corridor-max">+3.0 дБ</span>
+              </div>
+              <input type="range" id="auto-eq-max" min="-5" max="12" step="0.5" value="3.0">
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;">
+                <span style="color:#cbd5e1;">⬇️ Нижний предел (База при CLIP &gt; +5 дБ)</span>
+                <span class="mono" style="font-weight:700;color:#38bdf8;" id="val-corridor-min">0.0 дБ</span>
+              </div>
+              <input type="range" id="auto-eq-min" min="-10" max="6" step="0.5" value="0.0">
+            </div>
+
+            <div style="padding-top:6px;border-top:1px solid rgba(255,255,255,0.1);">
+              <div style="display:flex;justify-content:space-between;font-size:11px;">
+                <span style="color:#fcd34d;font-weight:600;">🛡️ Защита плотного баса (Анти-Твиттер)</span>
+                <span class="mono" style="font-weight:700;color:#fbbf24;" id="val-pink-tilt">3.0 дБ/окт</span>
+              </div>
+              <input type="range" id="auto-eq-tilt" min="0" max="4.5" step="0.25" value="3.0">
+            </div>
+          </div>
+
+          <div style="background:rgba(30,41,59,0.8);padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,0.1);display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <span style="font-size:12px;font-weight:700;color:#fcd34d;display:block;">🎚️ 32-полосный эквалайзер (20 Гц – 16 кГц)</span>
+                <span style="font-size:10px;color:#94a3b8;" id="clip-counter-badge">Активных CLIP (&gt;+5 дБ): 0 из 32</span>
+              </div>
+              <button id="eq-flat-btn" type="button" style="padding:5px 10px;border-radius:8px;background:rgba(245,158,11,0.2);color:#fcd34d;font-size:10px;font-weight:700;border:1px solid rgba(245,158,11,0.3);cursor:pointer;">В ноль (0 дБ)</button>
+            </div>
+
+            <div class="custom-scroll" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;">
+              <button type="button" data-preset="shelf3" class="eq-preset-btn" style="flex-shrink:0;padding:5px 10px;border-radius:8px;background:rgba(16,185,129,0.2);font-size:10px;font-weight:700;color:#6ee7b7;border:1px solid rgba(52,211,153,0.3);cursor:pointer;">📏 Ровная полка +2 дБ</button>
+              <button type="button" data-preset="bass" class="eq-preset-btn" style="flex-shrink:0;padding:5px 10px;border-radius:8px;background:rgba(255,255,255,0.1);font-size:10px;font-weight:700;color:#7dd3fc;border:1px solid rgba(255,255,255,0.1);cursor:pointer;">🔊 Глубокий Бас</button>
+              <button type="button" data-preset="vshape" class="eq-preset-btn" style="flex-shrink:0;padding:5px 10px;border-radius:8px;background:rgba(255,255,255,0.1);font-size:10px;font-weight:700;color:#a5b4fc;border:1px solid rgba(255,255,255,0.1);cursor:pointer;">⚡ Клуб (V-Shape)</button>
+              <button type="button" data-preset="vocal" class="eq-preset-btn" style="flex-shrink:0;padding:5px 10px;border-radius:8px;background:rgba(255,255,255,0.1);font-size:10px;font-weight:700;color:#d8b4fe;border:1px solid rgba(255,255,255,0.1);cursor:pointer;">🎤 Вокал</button>
+              <button type="button" data-preset="air" class="eq-preset-btn" style="flex-shrink:0;padding:5px 10px;border-radius:8px;background:rgba(255,255,255,0.1);font-size:10px;font-weight:700;color:#fcd34d;border:1px solid rgba(255,255,255,0.1);cursor:pointer;">✨ Детальность 16кГц</button>
+            </div>
+
+            <div id="eq-32-container" class="custom-scroll" style="display:grid;grid-template-columns:1fr;gap:6px;max-height:300px;overflow-y:auto;"></div>
+          </div>
+        </div>
+
+        <!-- ВКЛАДКА 2: ЗАДЕРЖКИ КАНАЛОВ И СТЕРЕОБАЗА -->
+        <div id="tab-delay" class="dsp-tab-content hidden">
+          <div style="background:rgba(30,41,59,0.8);padding:14px;border-radius:16px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;">
+              <span style="font-size:12px;font-weight:700;color:#6ee7b7;">↔️ Расширение стереобазы (Mid/Side)</span>
+              <span class="mono" style="font-size:12px;font-weight:700;color:#34d399;" id="val-stereo-width">100%</span>
+            </div>
+            <input type="range" id="fx-stereo-width" min="0" max="250" step="1" value="100">
+          </div>
+
+          <div style="background:rgba(30,41,59,0.8);padding:14px;border-radius:16px;margin-bottom:12px;display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:12px;font-weight:700;color:#7dd3fc;">⏱️ Задержка L / R каналов</span>
+              <div style="display:flex;gap:6px;">
+                <button id="test-click-btn" type="button" style="padding:4px 8px;border-radius:8px;background:rgba(245,158,11,0.2);color:#fcd34d;font-size:10px;font-weight:700;border:1px solid rgba(245,158,11,0.3);cursor:pointer;">🥁 Тест-щелчки</button>
+                <button id="haas-test-btn" type="button" style="padding:4px 8px;border-radius:8px;background:rgba(56,189,248,0.2);color:#7dd3fc;font-size:10px;font-weight:700;border:1px solid rgba(56,189,248,0.3);cursor:pointer;">Тест 35 мс</button>
+              </div>
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <span style="color:#cbd5e1;">Левый канал (L)</span>
+                <span class="mono" style="font-weight:700;color:#38bdf8;" id="val-delay-l">1.43 мс (49 см)</span>
+              </div>
+              <input type="range" id="fx-delay-l" min="0" max="150" step="0.05" value="1.43">
+            </div>
+
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <span style="color:#cbd5e1;">Правый канал (R)</span>
+                <span class="mono" style="font-weight:700;color:#818cf8;" id="val-delay-r">0.00 мс (0 см)</span>
+              </div>
+              <input type="range" id="fx-delay-r" min="0" max="150" step="0.05" value="0.00">
+            </div>
+
+            <div style="padding-top:8px;border-top:1px solid rgba(255,255,255,0.1);">
+              <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <span style="color:#cbd5e1;">⚖️ Баланс сцены (Панорама L/R)</span>
+                <span class="mono" style="font-weight:700;color:#fcd34d;" id="val-pan">Центр</span>
+              </div>
+              <input type="range" id="fx-pan" min="-1" max="1" step="0.02" value="0">
+            </div>
+          </div>
+
+          <div style="background:rgba(30,41,59,0.8);padding:14px;border-radius:16px;">
+            <span style="font-size:12px;font-weight:700;display:block;color:#e2e8f0;">📏 Калькулятор задержки по расстоянию (см)</span>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">
+              <div>
+                <label style="font-size:10px;color:#94a3b8;display:block;">Левый (см)</label>
+                <input type="number" id="dist-l" value="78" class="mono" style="font-weight:700;color:#7dd3fc;">
+              </div>
+              <div>
+                <label style="font-size:10px;color:#94a3b8;display:block;">Правый (см)</label>
+                <input type="number" id="dist-r" value="127" class="mono" style="font-weight:700;color:#a5b4fc;">
+              </div>
+              <div>
+                <label style="font-size:10px;color:#94a3b8;display:block;">Саб (см)</label>
+                <input type="number" id="dist-sub" value="180" class="mono" style="font-weight:700;color:#fcd34d;">
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px;">
+              <button id="calc-lr-btn" type="button" style="padding:9px;border-radius:11px;font-size:12px;font-weight:700;background:#38bdf8;color:#0f172a;border:none;cursor:pointer;">Рассчитать L/R</button>
+              <button id="calc-sub-btn" type="button" style="padding:9px;border-radius:11px;font-size:12px;font-weight:700;background:rgba(255,255,255,0.1);color:#fff;border:none;cursor:pointer;">С учетом Саба</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ВКЛАДКА 3: ЭХО/3D -->
+        <div id="tab-space" class="dsp-tab-content hidden">
+          <div style="background:rgba(30,41,59,0.8);padding:14px;border-radius:16px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;">
+              <span style="font-weight:700;color:#d8b4fe;">🏛️ Реверберация (Акустика зала)</span>
+              <span class="mono" style="font-weight:700;color:#c084fc;" id="val-reverb">0%</span>
+            </div>
+            <input type="range" id="fx-reverb-mix" min="0" max="1" step="0.01" value="0">
+
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-top:6px;">
+              <span style="color:#cbd5e1;">Размер зала</span>
+              <span class="mono" style="color:#d8b4fe;" id="val-reverb-decay">2.2 с (≈ 42 м², 126 м³)</span>
+            </div>
+            <input type="range" id="fx-reverb-decay" min="0.4" max="5.0" step="0.2" value="2.2">
+          </div>
+
+          <div style="background:rgba(30,41,59,0.8);padding:14px;border-radius:16px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;">
+              <span style="font-weight:700;color:#f9a8d4;">⛰️ Эхо (Ping-Pong Delay)</span>
+              <span class="mono" style="font-weight:700;color:#f472b6;" id="val-echo-mix">0%</span>
+            </div>
+            <input type="range" id="fx-echo-mix" min="0" max="0.8" step="0.01" value="0">
+
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;">
+              <span style="color:#cbd5e1;">Время эха (мс)</span>
+              <span class="mono" style="color:#f9a8d4;" id="val-echo-time">280 мс</span>
+            </div>
+            <input type="range" id="fx-echo-time" min="60" max="800" step="10" value="280">
+
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px;">
+              <span style="color:#cbd5e1;">Повторы (Feedback)</span>
+              <span class="mono" style="color:#f9a8d4;" id="val-echo-fb">35%</span>
+            </div>
+            <input type="range" id="fx-echo-fb" min="0" max="0.85" step="0.01" value="0.35">
+          </div>
+
+          <div style="background:rgba(30,41,59,0.8);padding:14px;border-radius:16px;">
+            <div style="display:flex;justify-content:space-between;font-size:12px;">
+              <span style="font-weight:700;color:#67e8f9;">🌀 8D Вращение звука (Auto-Pan LFO)</span>
+              <span class="mono" style="font-weight:700;color:#22d3ee;" id="val-autopan">Выкл</span>
+            </div>
+            <input type="range" id="fx-autopan" min="0" max="1" step="0.02" value="0">
+
+            <div style="padding-top:8px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.1);">
+              <div style="display:flex;justify-content:space-between;font-size:12px;">
+                <span style="font-weight:700;color:#a5b4fc;">🎛️ DJ Фильтр среза ВЧ (Low-Pass)</span>
+                <span class="mono" style="font-weight:700;color:#818cf8;" id="val-lpf">16000 Гц</span>
+              </div>
+              <input type="range" id="fx-lpf" min="250" max="16000" step="50" value="16000">
+            </div>
+          </div>
+        </div>
+
+        <!-- ВКЛАДКА 4: МИКРО-ТЕСТ -->
+        <div id="tab-mic" class="dsp-tab-content hidden">
+          <div style="background:rgba(30,41,59,0.8);padding:14px;border-radius:16px;display:flex;flex-direction:column;gap:10px;">
+            <span style="font-size:12px;font-weight:700;color:#fda4af;">🎤 Авто-настройка задержек через микрофон (L/R)</span>
+            <p style="font-size:11px;color:#94a3b8;margin:0;">Положите телефон на место водителя. Программа подаст импульсы в Левый и Правый каналы, замерит отклик и выставит задержку.</p>
+            <div style="background:#0f172a;padding:12px;border-radius:12px;text-align:center;">
+              <div id="mic-status" style="font-size:12px;font-weight:700;color:#cbd5e1;">Ожидание запуска...</div>
+              <div class="mono" style="display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;margin-top:6px;">
+                <span id="mic-res-l">L: --</span>
+                <span id="mic-res-r">R: --</span>
+                <span id="mic-res-diff">Δ: --</span>
+              </div>
+            </div>
+            <button id="start-mic-align-btn" type="button" style="width:100%;padding:10px;border-radius:12px;font-size:12px;font-weight:700;background:rgba(244,63,94,0.2);color:#fda4af;border:1px solid rgba(244,63,94,0.3);cursor:pointer;">Начать акустический замер</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОДАЛЬНОЕ ОКНО ПЛЕЙЛИСТА -->
+  <div id="playlist-modal" class="hidden" style="position:fixed;inset:0;z-index:75;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:12px;">
+    <div id="playlist-panel" class="glass-card" style="width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;border-radius:22px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;">
+        <strong style="font-size:16px;">🎵 Плейлист</strong>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button id="playlist-add-files-btn" type="button" style="padding:7px 11px;border-radius:10px;background:rgba(56,189,248,0.2);border:1px solid rgba(56,189,248,0.4);color:#7dd3fc;font-size:12px;font-weight:800;cursor:pointer;">+ Файлы</button>
+          <button id="playlist-add-folder-btn" type="button" style="padding:7px 11px;border-radius:10px;background:rgba(16,185,129,0.2);border:1px solid rgba(52,211,153,0.4);color:#6ee7b7;font-size:12px;font-weight:800;cursor:pointer;">+ Папка</button>
+          <button id="playlist-close" type="button" class="gear-btn">✕</button>
+        </div>
+      </div>
+      <div id="playlist-items" class="custom-scroll" style="overflow-y:auto;display:flex;flex-direction:column;gap:7px;min-height:80px;">
+        <div style="color:var(--hint-color);font-size:13px;padding:12px;text-align:center;">Добавьте аудиофайлы через «📂 Загрузка файлов»</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Всплывающее уведомление -->
+  <div id="toast" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);padding:8px 16px;border-radius:12px;background:#38bdf8;color:#0f172a;font-size:12px;font-weight:800;z-index:90;opacity:0;pointer-events:none;transition:opacity 0.3s;">
+    Готово
+  </div>
+
+  <!-- ОВЕРЛЕЙ КАРМАННОГО РЕЖИМА -->
+  <div id="pocket-overlay" class="hidden" style="position:fixed;inset:0;background:#000000;z-index:100;padding:32px;text-align:center;flex-direction:column;justify-content:space-between;align-items:center;">
+    <div class="mono" style="font-size:11px;color:#475569;padding-top:16px;">
+      🔋 Энергосбережение OLED • Рендер графики отключен • DSP работает
+    </div>
+    <div>
+      <div style="width:64px;height:64px;border-radius:50%;border:1px solid #1e293b;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:24px;opacity:0.4;">🔒</div>
+      <p style="font-size:14px;font-weight:700;color:#64748b;margin:0 0 6px;" id="pocket-station-title">Аудио-процессор активен</p>
+      <p style="font-size:12px;color:#334155;margin:0;">Дважды нажмите в любом месте, чтобы вернуть экран</p>
+    </div>
+    <button id="exit-pocket-btn" type="button" style="padding:14px;border-radius:16px;background:transparent;border:1px solid #1e293b;color:#64748b;width:100%;max-width:280px;font-weight:700;cursor:pointer;">
+      Разблокировать интерфейс
+    </button>
+  </div>
+
+  <audio id="keep-alive-audio" playsinline loop class="hidden"></audio>
+
+  <script>
+    // =========================================================================
+    // 10. BLUETOOTH OBD2 БОРТОВОЙ КОМПЬЮТЕР (ELM327 BLE + CARSCANNER ПРОФИЛИ)
+    // =========================================================================
+    const OBD_CAR_PROFILES = {
+      fusion: {
+        name: 'Ford — OBD-II / EOBD + CAN and extra PIDs',
+        disp: 1.4,
+        idleLph: 0.68,
+        factor: 1.0,
+        proto: 'ATSP6',
+        fallbackProto: 'ATSP0',
+        extraPids: true
+      },
+      outlander: {
+        name: 'Mitsubishi — OBD-II / EOBD (4J11 2.0L)',
+        disp: 2.0,
+        idleLph: 0.85,
+        factor: 1.05,
+        proto: 'ATSP6',
+        fallbackProto: 'ATSP0',
+        extraPids: false
+      },
+      universal: {
+        name: 'Универсальный OBD-II / EOBD (SAE J1979)',
+        disp: 1.6,
+        idleLph: 0.75,
+        factor: 1.0,
+        proto: 'ATSP0',
+        fallbackProto: 'ATSP6',
+        extraPids: false
+      }
+    };
+
+    const obdModal = document.getElementById('obd-modal');
+    const obdBtBtn = document.getElementById('obd-bt-btn');
+    const obdCarSelect = document.getElementById('obd-car-profile');
+    const obdFuelPriceInput = document.getElementById('obd-fuel-price');
+
+    (function injectObdProtocolControls() {
+      const connCard = document.querySelector('#obd-tab-conn > div:first-child');
+      if (!connCard || document.getElementById('obd-proto-select')) return;
+      const protoWrap = document.createElement('div');
+      protoWrap.style.cssText = 'display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-top:2px;';
+      protoWrap.innerHTML = `
+        <select id="obd-proto-select" style="font-size:12px;font-weight:700;padding:8px 10px;">
+          <option value="ATSP6">Протокол: CAN 11bit 500k (ATSP6 • Ford / Mitsubishi)</option>
+          <option value="ATSP0">Протокол: Автопоиск ЭБУ (ATSP0 • Universal EOBD)</option>
+          <option value="ATSP7">Протокол: CAN 29bit 500k (ATSP7)</option>
+          <option value="ATSP3">Протокол: ISO 9141-2 (ATSP3)</option>
+          <option value="ATSP4">Протокол: KWP2000 5 Baud (ATSP4)</option>
+          <option value="ATSP5">Протокол: KWP2000 Fast (ATSP5)</option>
+        </select>
+        <button id="obd-ping-ecu-btn" type="button" style="padding:8px 11px;border-radius:11px;background:rgba(56,189,248,0.2);border:1px solid rgba(56,189,248,0.45);color:#7dd3fc;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">
+          ⚡ Пинг ЭБУ
+        </button>
+      `;
+      connCard.appendChild(protoWrap);
+    })();
+
+    let obdBleDevice = null;
+    let obdTxChar = null;
+    let obdConnected = false;
+    let obdSimMode = false;
+    let obdGpsEnabled = false;
+    let obdGpsWatchId = null;
+    let obdRxBuffer = '';
+    let obdReadPollerTimer = null;
+
+    let curSpeedKmh = 0;
+    let curCoolantTemp = null;
+    let curRpm = 0;
+    let curVoltage = 14.2;
+    let curEngineLoad = 0;
+    let curInstantLph = 0;
+    let obdDriveSeconds = 0;
+    let activeFuelPeriod = 'day';
+
+    const FUEL_STORAGE_KEY = 'tma_obd_fuel_stats_v2';
+    let fuelStats = {
+      carProfile: 'fusion',
+      pricePerLiter: 62.5,
+      day: { distKm: 0, liters: 0 },
+      week: { distKm: 0, liters: 0 },
+      month: { distKm: 0, liters: 0 },
+      year: { distKm: 0, liters: 0 }
+    };
+
+    try {
+      const savedFuel = JSON.parse(localStorage.getItem(FUEL_STORAGE_KEY) || 'null');
+      if (savedFuel && savedFuel.day) {
+        fuelStats = Object.assign(fuelStats, savedFuel);
+        if (OBD_CAR_PROFILES[fuelStats.carProfile]) {
+          obdCarSelect.value = fuelStats.carProfile;
+        }
+        obdFuelPriceInput.value = fuelStats.pricePerLiter || 62.5;
+      }
+    } catch (e) {}
+
+    function saveFuelStats() {
+      try { localStorage.setItem(FUEL_STORAGE_KEY, JSON.stringify(fuelStats)); } catch (e) {}
+    }
+
+    function logObd(msg) {
+      const logEl = document.getElementById('obd-terminal-log');
+      if (!logEl) return;
+      const t = new Date().toLocaleTimeString('ru-RU');
+      logEl.textContent += `\n[${t}] ${msg}`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function openObdModal(defaultTabId = null) {
+      obdModal.classList.remove('hidden');
+      if (defaultTabId) {
+        document.querySelectorAll('.obd-tab-pane').forEach(p => p.classList.add('hidden'));
+        const pane = document.getElementById(defaultTabId);
+        if (pane) pane.classList.remove('hidden');
+        document.querySelectorAll('.obd-tab-btn').forEach(b => {
+          b.classList.toggle('active', b.getAttribute('data-obd-tab') === defaultTabId);
+        });
+      }
+      renderFuelStatsUI();
+      haptic('light');
+    }
+
+    function closeObdModal() {
+      obdModal.classList.add('hidden');
+      haptic('light');
+    }
+
+    obdBtBtn.addEventListener('click', () => openObdModal());
+    document.getElementById('hud-obd-speed-box').addEventListener('click', () => openObdModal('obd-tab-info'));
+    document.getElementById('hud-obd-temp-box').addEventListener('click', () => openObdModal('obd-tab-info'));
+    document.getElementById('hud-obd-rpm-box').addEventListener('click', () => openObdModal('obd-tab-info'));
+    document.getElementById('hud-obd-rub-box').addEventListener('click', () => openObdModal('obd-tab-fuel'));
+    document.getElementById('mini-cell-volt').addEventListener('click', () => openObdModal('obd-tab-info'));
+    document.getElementById('mini-cell-avg').addEventListener('click', () => openObdModal('obd-tab-fuel'));
+    document.getElementById('mini-cell-dist').addEventListener('click', () => openObdModal('obd-tab-fuel'));
+    document.getElementById('mini-cell-dtc').addEventListener('click', () => openObdModal('obd-tab-dtc'));
+    document.getElementById('obd-modal-close').addEventListener('click', closeObdModal);
+    obdModal.addEventListener('click', (e) => {
+      if (e.target === obdModal) closeObdModal();
+    });
+
+    document.querySelectorAll('.obd-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.getAttribute('data-obd-tab');
+        document.querySelectorAll('.obd-tab-pane').forEach(p => p.classList.add('hidden'));
+        document.getElementById(targetId).classList.remove('hidden');
+        document.querySelectorAll('.obd-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        haptic('sel');
+      });
+    });
+
+    function updateObdHudAndWidgets() {
+      const spdRounded = Math.max(0, Math.round(curSpeedKmh));
+      const rpmRounded = Math.max(0, Math.round(curRpm));
+      document.getElementById('hud-speed-val').textContent = String(spdRounded);
+
+      const rpmBoxEl = document.getElementById('hud-rpm-val');
+      if (rpmBoxEl) rpmBoxEl.textContent = String(rpmRounded);
+
+      const p = fuelStats[activeFuelPeriod] || fuelStats.day;
+      const price = parseFloat(obdFuelPriceInput.value) || 62.5;
+      const rubCost = Math.round((p.liters || 0) * price);
+
+      const rubBoxEl = document.getElementById('hud-rub-val');
+      if (rubBoxEl) rubBoxEl.textContent = `${rubCost} ₽`;
+
+      const tempEl = document.getElementById('hud-temp-val');
+      if (curCoolantTemp !== null && isFinite(curCoolantTemp)) {
+        const tRound = Math.round(curCoolantTemp);
+        tempEl.textContent = `${tRound}°`;
+        tempEl.style.color = tRound >= 102 ? '#fb7185' : (tRound < 50 ? '#7dd3fc' : '');
+      } else {
+        tempEl.textContent = '--';
+      }
+
+      const stripVolt = document.getElementById('strip-volt-val');
+      if (stripVolt) stripVolt.textContent = `${curVoltage.toFixed(1)} В`;
+
+      const stripFuel = document.getElementById('strip-fuel-val');
+      if (stripFuel) {
+        const avg = (p.distKm || 0) > 0.05 ? ((p.liters || 0) / p.distKm) * 100 : (curSpeedKmh > 5 ? (curInstantLph / curSpeedKmh) * 100 : 0);
+        stripFuel.textContent = `${avg.toFixed(1)} л/100`;
+      }
+
+      const stripDist = document.getElementById('strip-dist-val');
+      if (stripDist) stripDist.textContent = `${(p.distKm || 0).toFixed(1)} км`;
+
+      document.getElementById('obd-info-speed').textContent = `${spdRounded} км/ч`;
+      document.getElementById('obd-info-temp').textContent = curCoolantTemp !== null ? `${Math.round(curCoolantTemp)} °C` : '-- °C';
+      document.getElementById('obd-info-rpm').textContent = `${rpmRounded} об/мин`;
+      document.getElementById('obd-info-volt').textContent = `${curVoltage.toFixed(1)} В`;
+      document.getElementById('obd-info-load').textContent = `${Math.round(curEngineLoad)} %`;
+      document.getElementById('obd-info-instant-fuel').textContent = curSpeedKmh > 5
+        ? `${((curInstantLph / curSpeedKmh) * 100).toFixed(1)} л/100`
+        : `${curInstantLph.toFixed(2)} л/ч`;
+    }
+
+    function renderFuelStatsUI() {
+      const p = fuelStats[activeFuelPeriod] || fuelStats.day;
+      const dist = p.distKm || 0;
+      const lit = p.liters || 0;
+      const avg = dist > 0.05 ? (lit / dist) * 100 : 0;
+      const price = parseFloat(obdFuelPriceInput.value) || 62.5;
+      const cost = Math.round(lit * price);
+
+      document.getElementById('obd-fuel-dist').textContent = `${dist.toFixed(2)} км`;
+      document.getElementById('obd-fuel-liters').textContent = `${lit.toFixed(2)} л`;
+      document.getElementById('obd-fuel-avg').textContent = `${avg.toFixed(1)} л/100км`;
+      document.getElementById('obd-fuel-cost').textContent = `${cost} ₽`;
+
+      const rubBoxEl = document.getElementById('hud-rub-val');
+      if (rubBoxEl) rubBoxEl.textContent = `${cost} ₽`;
+    }
+
+    document.querySelectorAll('.fuel-period-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeFuelPeriod = btn.getAttribute('data-fuel-period');
+        document.querySelectorAll('.fuel-period-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderFuelStatsUI();
+      });
+    });
+
+    obdCarSelect.addEventListener('change', () => {
+      fuelStats.carProfile = obdCarSelect.value;
+      const prof = OBD_CAR_PROFILES[obdCarSelect.value] || OBD_CAR_PROFILES.fusion;
+      const protoSel = document.getElementById('obd-proto-select');
+      if (protoSel && prof.proto) protoSel.value = prof.proto;
+      saveFuelStats();
+      showToast('Профиль: ' + prof.name);
+    });
+
+    obdFuelPriceInput.addEventListener('input', () => {
+      fuelStats.pricePerLiter = parseFloat(obdFuelPriceInput.value) || 62.5;
+      saveFuelStats();
+      renderFuelStatsUI();
+    });
+
+    document.getElementById('obd-reset-fuel-btn').addEventListener('click', () => {
+      fuelStats[activeFuelPeriod] = { distKm: 0, liters: 0 };
+      saveFuelStats();
+      renderFuelStatsUI();
+      updateObdHudAndWidgets();
+      showToast('Счетчик выбранного периода сброшен');
+    });
+
+    function startGpsSpeedWatch() {
+      if (!('geolocation' in navigator) || obdGpsWatchId !== null) return;
+      try {
+        obdGpsWatchId = navigator.geolocation.watchPosition(pos => {
+          if (!obdConnected && !obdSimMode && obdGpsEnabled) {
+            const mps = pos.coords.speed;
+            curSpeedKmh = (mps !== null && isFinite(mps) && mps >= 0) ? mps * 3.6 : 0;
+            updateObdHudAndWidgets();
+          }
+        }, () => {}, { enableHighAccuracy: true, maximumAge: 2000 });
+      } catch (e) {}
+    }
+    startGpsSpeedWatch();
+
+    document.getElementById('obd-gps-speed-toggle').addEventListener('click', (e) => {
+      obdGpsEnabled = !obdGpsEnabled;
+      e.target.textContent = `🛰️ GPS-Спидометр: ${obdGpsEnabled ? 'ВКЛ' : 'ВЫКЛ'}`;
+      if (!obdGpsEnabled && !obdConnected && !obdSimMode) {
+        curSpeedKmh = 0;
+        updateObdHudAndWidgets();
+      }
+    });
+
+    // Полный список BLE UUID для адаптеров OBDII / ELM327 (FFF0, FFE0, 18F0, Nordic UART, Isssc)
+    const ELM_SERVICE_UUIDS = [
+      '0000fff0-0000-1000-8000-00805f9b34fb',
+      '0000ffe0-0000-1000-8000-00805f9b34fb',
+      '000018f0-0000-1000-8000-00805f9b34fb',
+      'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
+      '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
+    ];
+
+    let obdWriteCharacteristics = [];
+    let obdNotifyCharacteristics = [];
+    let obdActiveChannel = null; // { ch, method: 'with' | 'without', eol: '\r' | '\r\n', name: 'FFF2' }
+    let obdPromptResolver = null;
+    let obdLoopRunning = false;
+
+    function shortUuid(uuidStr) {
+      const s = String(uuidStr || '').toLowerCase();
+      if (s.startsWith('0000') && s.endsWith('-0000-1000-8000-00805f9b34fb')) {
+        return s.slice(4, 8).toUpperCase();
+      }
+      return s.slice(0, 8).toUpperCase();
+    }
+
+    function scoreTxCharacteristic(ch, srvUuid) {
+      const u = String(ch.uuid || '').toLowerCase();
+      const s = String(srvUuid || '').toLowerCase();
+      if (u.includes('2a00') || u.includes('2a01') || u.includes('2a05')) return -100;
+      if (s.startsWith('00001800') || s.startsWith('00001801') || s.startsWith('0000180a')) return -100;
+      let score = 10;
+      if (u.includes('fff2') || u.includes('2af1') || u.includes('6e400002')) score += 60;
+      else if (u.includes('ffe1') || u.includes('fff1')) score += 45;
+      if (s.includes('fff0') || s.includes('ffe0') || s.includes('18f0')) score += 30;
+      return score;
+    }
+
+    // Отправка пакета строго в ОДИН выбранный канал и ОДНИМ методом (без дублирования!)
+    async function writeToChannel(ch, payload, preferredMethod = 'auto') {
+      if (!ch) return false;
+
+      if (preferredMethod === 'with') {
+        if (ch.writeValueWithResponse) {
+          try { await ch.writeValueWithResponse(payload); return true; } catch (e) {}
+        }
+        if (ch.writeValue) {
+          try { await ch.writeValue(payload); return true; } catch (e) {}
+        }
+        if (ch.writeValueWithoutResponse) {
+          try { await ch.writeValueWithoutResponse(payload); return true; } catch (e) {}
+        }
+        return false;
+      }
+
+      if (preferredMethod === 'without') {
+        if (ch.writeValueWithoutResponse) {
+          try { await ch.writeValueWithoutResponse(payload); return true; } catch (e) {}
+        }
+        if (ch.writeValue) {
+          try { await ch.writeValue(payload); return true; } catch (e) {}
+        }
+        return false;
+      }
+
+      // Auto: сначала пробуем стандартный writeValueWithResponse / writeValue (предпочтительно для TEYES Android)
+      if (ch.properties?.write && (ch.writeValueWithResponse || ch.writeValue)) {
+        try {
+          if (ch.writeValueWithResponse) await ch.writeValueWithResponse(payload);
+          else await ch.writeValue(payload);
+          return true;
+        } catch (e) {}
+      }
+      if (ch.properties?.writeWithoutResponse && ch.writeValueWithoutResponse) {
+        try {
+          await ch.writeValueWithoutResponse(payload);
+          return true;
+        } catch (e) {}
+      }
+      if (ch.writeValue) {
+        try { await ch.writeValue(payload); return true; } catch (e) {}
+      }
+      return false;
+    }
+
+    function handleIncomingObdText(chunk) {
+      if (!chunk) return;
+      obdRxBuffer += chunk;
+      parseElmResponse(obdRxBuffer);
+      // Сигнал завершения ответа от ELM327 — символ приглашения '>' или 'OK' при инициализации
+      if (obdRxBuffer.includes('>') || (obdPromptResolver && /ELM327|OBDII|OK\r|\?\r/i.test(obdRxBuffer))) {
+        const fullMsg = obdRxBuffer;
+        obdRxBuffer = '';
+        if (obdPromptResolver) obdPromptResolver(fullMsg);
+      }
+    }
+
+    function sendObdCommandOnChannel(cmd, channelObj, timeoutMs = 1500) {
+      return new Promise(async (resolve) => {
+        if (!obdConnected || !channelObj || !channelObj.ch) return resolve('');
+        obdRxBuffer = '';
+
+        let timer = setTimeout(() => {
+          const partial = obdRxBuffer.trim();
+          obdRxBuffer = '';
+          obdPromptResolver = null;
+          resolve(partial);
+        }, timeoutMs);
+
+        obdPromptResolver = (responseChunk) => {
+          clearTimeout(timer);
+          obdPromptResolver = null;
+          resolve(responseChunk);
+        };
+
+        const eol = channelObj.eol || '\r';
+        const payload = new TextEncoder().encode(cmd + eol);
+        const ok = await writeToChannel(channelObj.ch, payload, channelObj.method || 'auto');
+
+        if (!ok) {
+          clearTimeout(timer);
+          obdPromptResolver = null;
+          resolve('');
+        }
+      });
+    }
+
+    // Умный авто-поиск рабочего канала и метода записи (исключает отправку команды в FFF2 и FFF1 одновременно!)
+    async function discoverWorkingObdChannel() {
+      const chMode = document.getElementById('obd-tx-channel-mode')?.value || 'auto';
+      const wrMode = document.getElementById('obd-write-mode')?.value || 'auto';
+
+      // Если пользователь жестко выбрал конкретный канал в настройках
+      if (chMode !== 'auto') {
+        const found = obdWriteCharacteristics.find(c => shortUuid(c.uuid).toLowerCase() === chMode);
+        const targetCh = found || obdWriteCharacteristics[0];
+        obdActiveChannel = {
+          ch: targetCh,
+          method: wrMode === 'auto' ? 'with' : wrMode,
+          eol: '\r',
+          name: shortUuid(targetCh.uuid)
+        };
+        logObd(`Выбран ручной канал TX=[${obdActiveChannel.name}] (${obdActiveChannel.method})`);
+        return obdActiveChannel;
+      }
+
+      logObd('🔍 Авто-подбор рабочего канала ELM327 (без задвоения пакетов)...');
+      const methodsToTry = wrMode === 'auto' ? ['with', 'without'] : [wrMode];
+      const eolsToTry = ['\r', '\r\n'];
+
+      for (const ch of obdWriteCharacteristics) {
+        const chName = shortUuid(ch.uuid);
+        for (const m of methodsToTry) {
+          // Проверяем поддержку свойства характеристикой
+          if (m === 'with' && !ch.properties?.write && ch.properties?.writeWithoutResponse) continue;
+          if (m === 'without' && !ch.properties?.writeWithoutResponse && ch.properties?.write) continue;
+
+          for (const eol of eolsToTry) {
+            if (!obdConnected) return null;
+            const probeCandidate = { ch, method: m, eol, name: chName };
+            // Пробуем быстрый запрос идентификатора ATI или пустой возврат каретки
+            const resp = await sendObdCommandOnChannel('ATI', probeCandidate, 850);
+            if (resp && resp.trim().length > 0) {
+              obdActiveChannel = probeCandidate;
+              logObd(`✅ Канал ЭБУ найден: TX=[${chName}] (${m === 'with' ? 'WithResponse' : 'WithoutResponse'}) -> ${resp.replace(/[\r\n]+/g, ' ').trim()}`);
+              return obdActiveChannel;
+            }
+          }
+        }
+      }
+
+      // Если на ATI ответа не было, пробуем пробуждение через ATZ на первом канале (FFF2, затем FFF1)
+      for (const ch of obdWriteCharacteristics) {
+        const chName = shortUuid(ch.uuid);
+        const probeCandidate = { ch, method: 'auto', eol: '\r', name: chName };
+        const resp = await sendObdCommandOnChannel('ATZ', probeCandidate, 1600);
+        if (resp && resp.trim().length > 0) {
+          obdActiveChannel = probeCandidate;
+          logObd(`✅ Адаптер пробужден по ATZ: TX=[${chName}] -> ${resp.replace(/[\r\n]+/g, ' ').trim()}`);
+          return obdActiveChannel;
+        }
+      }
+
+      // По умолчанию ставим первый канал (обычно FFF2)
+      const fallbackCh = obdWriteCharacteristics[0];
+      obdActiveChannel = {
+        ch: fallbackCh,
+        method: wrMode === 'auto' ? 'with' : wrMode,
+        eol: '\r',
+        name: shortUuid(fallbackCh.uuid)
+      };
+      logObd(`⚠️ Авто-ответ не получен. Используем TX=[${obdActiveChannel.name}].`);
+      logObd(`💡 ВАЖНО: Если CarScanner открыт в фоне на магнитоле — закройте его (он удерживает канал адаптера OBDII) и включите зажигание!`);
+      return obdActiveChannel;
+    }
+
+    function sendObdCommandAndWait(cmd, timeoutMs = 1500) {
+      if (!obdActiveChannel && obdWriteCharacteristics.length > 0) {
+        obdActiveChannel = {
+          ch: obdWriteCharacteristics[0],
+          method: 'auto',
+          eol: '\r',
+          name: shortUuid(obdWriteCharacteristics[0].uuid)
+        };
+      }
+      return sendObdCommandOnChannel(cmd, obdActiveChannel, timeoutMs);
+    }
+
+    function parseElmResponse(rawBlock) {
+      if (!rawBlock) return;
+
+      // Чтение напряжения адаптера ATRV (например: "12.4V" или "14.1V")
+      const vMatch = rawBlock.match(/(\d{1,2}\.\d{1,2})\s*V/i);
+      if (vMatch) {
+        const vv = parseFloat(vMatch[1]);
+        if (isFinite(vv) && vv > 6 && vv < 20) curVoltage = vv;
+      }
+
+      const lines = rawBlock.split(/[\r\n>]+/);
+      for (const line of lines) {
+        const noEcho = line
+          .replace(/^01[0-9A-F]{2}/i, '')
+          .replace(/^[0-9A-F]{3}\s+/i, '') // Убираем CAN-заголовок 7E8 если включен ATH1
+          .replace(/SEARCHING\.\.\./gi, '')
+          .replace(/NO\s*DATA/gi, '')
+          .replace(/UNABLE\s*TO\s*CONNECT/gi, '')
+          .replace(/STOPPED/gi, '');
+
+        const clean = noEcho.replace(/[^0-9A-F]/gi, '').toUpperCase();
+        if (!clean || clean.length < 6) continue;
+
+        // 010C: Обороты ДВС -> 41 0C AA BB
+        const rpmMatch = clean.match(/410C([0-9A-F]{2})([0-9A-F]{2})/);
+        if (rpmMatch) {
+          const a = parseInt(rpmMatch[1], 16);
+          const b = parseInt(rpmMatch[2], 16);
+          if (isFinite(a) && isFinite(b)) curRpm = ((a * 256) + b) / 4;
+        }
+
+        // 010D: Скорость -> 41 0D AA
+        const spdMatch = clean.match(/410D([0-9A-F]{2})/);
+        if (spdMatch) {
+          const v = parseInt(spdMatch[1], 16);
+          if (isFinite(v)) curSpeedKmh = v;
+        }
+
+        // 0105: Температура ОЖ ДВС -> 41 05 AA (A - 40)
+        const tmpMatch = clean.match(/4105([0-9A-F]{2})/);
+        if (tmpMatch) {
+          const v = parseInt(tmpMatch[1], 16);
+          if (isFinite(v)) curCoolantTemp = v - 40;
+        }
+
+        // 0104: Нагрузка ДВС -> 41 04 AA
+        const loadMatch = clean.match(/4104([0-9A-F]{2})/);
+        if (loadMatch) {
+          const v = parseInt(loadMatch[1], 16);
+          if (isFinite(v)) curEngineLoad = (v * 100) / 255;
+        }
+
+        // 0142: Напряжение модуля управления ЭБУ (Ford / Mitsubishi CAN Extra PID) -> 41 42 AA BB
+        const ecuVoltMatch = clean.match(/4142([0-9A-F]{2})([0-9A-F]{2})/);
+        if (ecuVoltMatch) {
+          const a = parseInt(ecuVoltMatch[1], 16);
+          const b = parseInt(ecuVoltMatch[2], 16);
+          const ecuV = ((a * 256) + b) / 1000;
+          if (isFinite(ecuV) && ecuV > 6 && ecuV < 20) curVoltage = ecuV;
+        }
+      }
+
+      updateObdHudAndWidgets();
+    }
+
+    async function startSequentialObdPolling() {
+      if (obdLoopRunning) return;
+      obdLoopRunning = true;
+
+      // Шаг 1: Находим единственный рабочий TX-канал (чтобы не слать команды в FFF2 и FFF1 одновременно)
+      await discoverWorkingObdChannel();
+      if (!obdConnected) {
+        obdLoopRunning = false;
+        return;
+      }
+
+      const profile = OBD_CAR_PROFILES[obdCarSelect.value] || OBD_CAR_PROFILES.fusion;
+      const protoSel = document.getElementById('obd-proto-select');
+      const selectedProto = protoSel ? protoSel.value : profile.proto;
+
+      logObd(`Инициализация профиля CarScanner: ${profile.name} (${selectedProto})...`);
+      // Последовательность инициализации CarScanner для Ford / Mitsubishi CAN
+      const initCmds = ['ATZ', 'ATE0', 'ATL0', 'ATS0', 'ATH0', 'ATAT1', selectedProto, 'ATRV', '0100', '0105', '010C'];
+
+      let gotEcuResponse = false;
+      for (const cmd of initCmds) {
+        if (!obdConnected) break;
+        const waitTime = (cmd === 'ATZ' || cmd === '0100' || cmd === '0105' || cmd === '010C') ? 1800 : 850;
+        const resp = await sendObdCommandAndWait(cmd, waitTime);
+        const cleanLog = resp ? resp.replace(/[\r\n]+/g, ' ').trim() : 'нет ответа';
+        logObd(`TX: ${cmd} -> RX: ${cleanLog}`);
+        if (resp && /41\s*00|4100|41\s*05|4105|41\s*0C|410C/i.test(resp)) {
+          gotEcuResponse = true;
+        }
+        // Пауза после сброса чипа ATZ, чтобы ELM327 успел перезагрузиться
+        if (cmd === 'ATZ') await new Promise(r => setTimeout(r, 650));
+      }
+
+      // Если на ATSP6 ЭБУ не ответил (например, старый протокол или автопоиск), переключаемся на ATSP0
+      if (obdConnected && !gotEcuResponse && selectedProto !== 'ATSP0') {
+        logObd('🔄 Переключение на автопоиск протокола ЭБУ (ATSP0)...');
+        await sendObdCommandAndWait('ATSP0', 1000);
+        const r0100 = await sendObdCommandAndWait('0100', 2500);
+        logObd(`TX: 0100 (Auto) -> RX: ${r0100 ? r0100.replace(/[\r\n]+/g, ' ').trim() : 'нет ответа'}`);
+      }
+
+      const pidCycle = profile.extraPids
+        ? ['010C', '010D', '0105', '0104', '0142', 'ATRV']
+        : ['010C', '010D', '0105', '0104', 'ATRV'];
+      let idx = 0;
+
+      while (obdConnected) {
+        const pid = pidCycle[idx % pidCycle.length];
+        idx++;
+        const resp = await sendObdCommandAndWait(pid, 1250);
+        if (resp) parseElmResponse(resp);
+        await new Promise(r => setTimeout(r, 90));
+      }
+
+      obdLoopRunning = false;
+    }
+
+    const pingBtn = document.getElementById('obd-ping-ecu-btn');
+    if (pingBtn) {
+      pingBtn.addEventListener('click', async () => {
+        if (!obdConnected) {
+          showToast('Сначала нажмите «Подключить ELM327»');
+          return;
+        }
+        await discoverWorkingObdChannel();
+        const protoSel = document.getElementById('obd-proto-select');
+        const proto = protoSel ? protoSel.value : 'ATSP6';
+        logObd(`Ручной пинг ЭБУ через TX=[${obdActiveChannel?.name || '?'}] (${proto})...`);
+        for (const c of ['ATI', 'ATRV', proto, '0105', '010C', '010D']) {
+          const r = await sendObdCommandAndWait(c, 1600);
+          logObd(`TX: ${c} -> RX: ${r ? r.replace(/[\r\n]+/g, ' ').trim() : 'нет ответа'}`);
+          if (r) parseElmResponse(r);
+        }
+      });
+    }
+
+    // При смене канала или метода записи вручную сразу обновляем активный канал
+    document.getElementById('obd-tx-channel-mode')?.addEventListener('change', () => {
+      if (obdConnected) discoverWorkingObdChannel();
+    });
+    document.getElementById('obd-write-mode')?.addEventListener('change', () => {
+      if (obdConnected) discoverWorkingObdChannel();
+    });
+
+    document.getElementById('obd-connect-ble-btn').addEventListener('click', async () => {
+      if (!navigator.bluetooth) {
+        showToast('Web Bluetooth недоступен. Используйте Chrome.');
+        logObd('Web Bluetooth API не поддерживается текущим браузером.');
+        return;
+      }
+      try {
+        logObd('Поиск Bluetooth адаптера OBDII / ELM327...');
+        obdBleDevice = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ELM_SERVICE_UUIDS
+        });
+
+        obdBleDevice.addEventListener('gattserverdisconnected', () => {
+          obdConnected = false;
+          obdLoopRunning = false;
+          obdActiveChannel = null;
+          if (obdReadPollerTimer) {
+            clearInterval(obdReadPollerTimer);
+            obdReadPollerTimer = null;
+          }
+          obdBtBtn.classList.remove('connected');
+          document.getElementById('obd-live-badge').textContent = 'OBD2';
+          document.getElementById('obd-modal-status-pill').textContent = 'Отключен';
+          logObd('ELM327 отключен.');
+        });
+
+        const server = await obdBleDevice.gatt.connect();
+        const services = await server.getPrimaryServices();
+        const notifyChars = [];
+        const txCandidates = [];
+        obdActiveChannel = null;
+        obdTxChar = null;
+
+        for (const srv of services) {
+          const srvUuid = String(srv.uuid || '').toLowerCase();
+          if (srvUuid.startsWith('00001800') || srvUuid.startsWith('00001801') || srvUuid.startsWith('0000180a')) {
+            continue;
+          }
+          let chars = [];
+          try { chars = await srv.getCharacteristics(); } catch (e) {}
+          for (const ch of chars) {
+            if (ch.properties.notify || ch.properties.indicate || ch.properties.read) {
+              notifyChars.push(ch);
+            }
+            if (ch.properties.writeWithoutResponse || ch.properties.write) {
+              const sc = scoreTxCharacteristic(ch, srvUuid);
+              if (sc > 0) txCandidates.push({ ch, score: sc });
+            }
+          }
+        }
+
+        txCandidates.sort((a, b) => b.score - a.score);
+        obdWriteCharacteristics = txCandidates.map(item => item.ch);
+        obdNotifyCharacteristics = notifyChars;
+
+        if (!notifyChars.length || !obdWriteCharacteristics.length) {
+          throw new Error('UART каналы ELM327 не найдены');
+        }
+
+        const rxNames = notifyChars.map(c => shortUuid(c.uuid)).join(',');
+        const txNames = obdWriteCharacteristics.map(c => shortUuid(c.uuid)).join(',');
+
+        for (const nCh of notifyChars) {
+          try {
+            if (nCh.properties.notify || nCh.properties.indicate) {
+              await nCh.startNotifications();
+              // Принудительная активация дескриптора CCCD 0x2902 для стека Bluetooth на TEYES Android
+              if (nCh.getDescriptor) {
+                try {
+                  const cccd = await nCh.getDescriptor('00002902-0000-1000-8000-00805f9b34fb');
+                  if (cccd) await cccd.writeValue(new Uint8Array([0x01, 0x00]));
+                } catch (e) {}
+              }
+              nCh.addEventListener('characteristicvaluechanged', (evt) => {
+                const chunk = new TextDecoder().decode(evt.target.value);
+                handleIncomingObdText(chunk);
+              });
+            }
+          } catch (e) {}
+        }
+
+        // Резервный опрос readValue() на случай если TEYES Android блокирует BLE-события уведомлений
+        if (obdReadPollerTimer) clearInterval(obdReadPollerTimer);
+        obdReadPollerTimer = setInterval(async () => {
+          if (!obdConnected || !obdPromptResolver) return;
+          for (const rCh of obdNotifyCharacteristics) {
+            if (rCh.properties?.read && rCh.readValue) {
+              try {
+                const val = await rCh.readValue();
+                if (val && val.byteLength > 0) {
+                  const str = new TextDecoder().decode(val);
+                  if (str && str.trim().length > 0) handleIncomingObdText(str);
+                }
+              } catch (e) {}
+            }
+          }
+        }, 280);
+
+        obdConnected = true;
+        obdSimMode = false;
+        curSpeedKmh = 0;
+        obdBtBtn.classList.add('connected');
+        document.getElementById('obd-live-badge').textContent = 'LIVE';
+        document.getElementById('obd-modal-status-pill').textContent = 'ELM327 LIVE';
+        logObd(`Подключено: ${obdBleDevice.name || 'OBDII'} (RX:[${rxNames}] / Доступные TX:[${txNames}])`);
+        showToast('OBDII подключен! Поиск рабочего канала...');
+
+        startSequentialObdPolling();
+      } catch (err) {
+        logObd('Ошибка: ' + (err.message || err));
+      }
+    });
+
+    document.getElementById('obd-disconnect-btn').addEventListener('click', () => {
+      obdSimMode = false;
+      obdConnected = false;
+      obdActiveChannel = null;
+      if (obdReadPollerTimer) {
+        clearInterval(obdReadPollerTimer);
+        obdReadPollerTimer = null;
+      }
+      if (obdBleDevice && obdBleDevice.gatt?.connected) obdBleDevice.gatt.disconnect();
+      obdBtBtn.classList.remove('connected');
+      document.getElementById('obd-live-badge').textContent = 'OBD2';
+      document.getElementById('obd-modal-status-pill').textContent = 'Отключен';
+      curRpm = 0;
+      curCoolantTemp = null;
+      updateObdHudAndWidgets();
+      showToast('OBD2 отключен');
+    });
+
+    document.getElementById('obd-sim-toggle-btn').addEventListener('click', (e) => {
+      obdSimMode = !obdSimMode;
+      e.target.textContent = `🧪 Демо-тест ДВС: ${obdSimMode ? 'ВКЛ' : 'ВЫКЛ'}`;
+      if (obdSimMode) {
+        obdBtBtn.classList.add('connected');
+        document.getElementById('obd-live-badge').textContent = 'LIVE';
+        document.getElementById('obd-modal-status-pill').textContent = 'DEMO LIVE';
+        curCoolantTemp = 88;
+        logObd('Запущена демо-симуляция параметров ДВС.');
+        showToast('Демо-режим OBD2 включен');
+      } else if (!obdConnected) {
+        obdBtBtn.classList.remove('connected');
+        document.getElementById('obd-live-badge').textContent = 'OBD2';
+        document.getElementById('obd-modal-status-pill').textContent = 'GPS / Ожидание';
+        curCoolantTemp = null;
+        curSpeedKmh = 0;
+        curRpm = 0;
+        updateObdHudAndWidgets();
+      }
+    });
+
+    document.getElementById('obd-clear-log-btn').addEventListener('click', () => {
+      document.getElementById('obd-terminal-log').textContent = '[OBD2] Лог очищен.';
+    });
+
+    const DTC_DICT = {
+      'P0171': 'Слишком бедная топливная смесь (Банк 1)',
+      'P0300': 'Случайные/множественные пропуски воспламенения',
+      'P0420': 'Низкая эффективность катализатора (Банк 1)'
+    };
+
+    document.getElementById('obd-read-dtc-btn').addEventListener('click', async () => {
+      const box = document.getElementById('obd-dtc-list');
+      box.innerHTML = '⏳ Сканирование ЭБУ (Mode 03 / Mode 07)...';
+      logObd('Запрос ошибок DTC (03)...');
+      if (obdConnected) {
+        const dtcResp = await sendObdCommandAndWait('03', 1800);
+        if (dtcResp) logObd('DTC RX: ' + dtcResp.replace(/[\r\n]+/g, ' ').trim());
+      }
+      setTimeout(() => {
+        if (obdSimMode) {
+          box.innerHTML = `<div style="padding:8px;border-radius:10px;background:rgba(244,63,94,0.16);border:1px solid rgba(244,63,94,0.4);margin-bottom:6px;"><strong class="mono" style="color:#fda4af;">P0420</strong> — ${DTC_DICT['P0420']}</div>`;
+          document.getElementById('strip-dtc-val').textContent = '⚠️ 1 ОШ';
+          document.getElementById('strip-dtc-val').style.color = '#fb7185';
+        } else {
+          box.innerHTML = `<div style="color:#6ee7b7;font-weight:700;">✅ Ошибок в памяти ЭБУ не обнаружено (0 кодов DTC).</div>`;
+          document.getElementById('strip-dtc-val').textContent = 'ОК (0)';
+          document.getElementById('strip-dtc-val').style.color = '#6ee7b7';
+        }
+      }, 400);
+    });
+
+    document.getElementById('obd-clear-dtc-btn').addEventListener('click', async () => {
+      logObd('Сброс ошибок ЭБУ (Mode 04)...');
+      if (obdConnected) await sendObdCommandAndWait('04', 1500);
+      document.getElementById('obd-dtc-list').innerHTML = `<div style="color:#38bdf8;font-weight:700;">✨ Память ошибок ЭБУ очищена (Mode 04 выполнен).</div>`;
+      document.getElementById('strip-dtc-val').textContent = 'ОК (0)';
+      document.getElementById('strip-dtc-val').style.color = '#6ee7b7';
+      showToast('Ошибки ЭБУ сброшены');
+    });
+
+    setInterval(() => {
+      const profile = OBD_CAR_PROFILES[obdCarSelect.value] || OBD_CAR_PROFILES.fusion;
+
+      if (!obdConnected && obdSimMode) {
+        const t = Date.now() / 1000;
+        curSpeedKmh = Math.max(0, Math.round(62 + 24 * Math.sin(t * 0.25)));
+        curRpm = Math.round(1900 + 600 * Math.sin(t * 0.35));
+        curCoolantTemp = Math.min(92, (curCoolantTemp || 78) + 0.15);
+        curEngineLoad = Math.round(35 + 18 * Math.sin(t * 0.4));
+        curVoltage = 14.2 + 0.1 * Math.sin(t);
+      }
+
+      if (curRpm > 300 || curSpeedKmh > 1) {
+        const loadFactor = Math.max(0.2, (curEngineLoad || 28) / 100);
+        const rpmFactor = Math.max(0.8, (curRpm || 1500) / 1000);
+        curInstantLph = profile.idleLph + (profile.disp * 0.95 * loadFactor * rpmFactor * profile.factor);
+      } else {
+        curInstantLph = 0;
+      }
+
+      if (curSpeedKmh > 0.5 || curInstantLph > 0.05) {
+        const dKm = curSpeedKmh / 3600;
+        const dLit = curInstantLph / 3600;
+        ['day', 'week', 'month', 'year'].forEach(k => {
+          fuelStats[k].distKm = (fuelStats[k].distKm || 0) + dKm;
+          fuelStats[k].liters = (fuelStats[k].liters || 0) + dLit;
+        });
+        obdDriveSeconds++;
+        const dh = String(Math.floor(obdDriveSeconds / 3600)).padStart(2, '0');
+        const dm = String(Math.floor((obdDriveSeconds % 3600) / 60)).padStart(2, '0');
+        const ds = String(obdDriveSeconds % 60).padStart(2, '0');
+        document.getElementById('obd-info-timers').textContent = `В пути: ${dh}:${dm}:${ds}`;
+        if (obdDriveSeconds % 10 === 0) saveFuelStats();
+        if (!obdModal.classList.contains('hidden')) renderFuelStatsUI();
+      }
+
+      updateObdHudAndWidgets();
+    }, 1000);
+
+    // =========================================================================
+    // 11. АВТОСОХРАНЕНИЕ НАСТРОЕК
+    // =========================================================================
+    const PERSIST_KEY = 'tma_audio_settings_v3';
+    const persistable = Array.from(document.querySelectorAll('input, select, textarea')).filter(el => el.id && el.type !== 'file');
+
+    function saveAllSettings() {
+      const values = {};
+      persistable.forEach(el => {
+        if (el.type === 'checkbox' || el.type === 'radio') values[el.id] = el.checked;
+        else values[el.id] = el.value;
+      });
+      values.__autoEqEnabled = autoEqEnabled;
+      values.__isBypassed = isBypassed;
+      try { localStorage.setItem(PERSIST_KEY, JSON.stringify(values)); } catch (e) {}
+    }
+
+    try {
+      const saved = JSON.parse(localStorage.getItem(PERSIST_KEY) || '{}');
+      persistable.forEach(el => {
+        if (!(el.id in saved)) return;
+        if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!saved[el.id];
+        else if (el.id !== 'radio-select') el.value = saved[el.id];
+      });
+      if (saved['radio-select'] && Array.from(stationSelect.options).some(o => o.value === saved['radio-select'])) {
+        stationSelect.value = saved['radio-select'];
+        document.getElementById('now-playing-title').textContent = stationSelect.options[stationSelect.selectedIndex]?.text || 'Радио';
+      }
+      if (typeof saved.__autoEqEnabled === 'boolean') autoEqEnabled = saved.__autoEqEnabled;
+      if (typeof saved.__isBypassed === 'boolean') isBypassed = saved.__isBypassed;
+      if (autoEqEnabled) autoEqTimer = setInterval(runSmoothAutoEqStep, 380);
+      updateAutoEqButtonsUI();
+      const bypassButton = document.getElementById('bypass-btn');
+      bypassButton.textContent = isBypassed ? 'DSP: ВЫКЛ' : 'DSP: ВКЛ';
+      bypassButton.style.background = isBypassed ? 'rgba(244,63,94,0.2)' : 'rgba(16,185,129,0.2)';
+      bypassButton.style.color = isBypassed ? '#fda4af' : '#6ee7b7';
+    } catch (e) {}
+
+    persistable.forEach(el => {
+      el.addEventListener('input', saveAllSettings);
+      el.addEventListener('change', saveAllSettings);
+    });
+
+    try {
+      visMode = Math.max(0, Math.min(5, Number(localStorage.getItem('tma_vis_mode') || 0)));
+      document.getElementById('vis-mode-btn').textContent = ['📊 32-Спектр', '〰️ Осциллограмма', '💎 Зеркало', '◎ Радиальный', '〽️ Двойная волна', '🌌 Частицы'][visMode];
+    } catch (e) {}
+
+    restoreSavedTracks();
+    syncAllDspParams();
+    updateObdHudAndWidgets();
+  </script>
+</body>
+</html>
